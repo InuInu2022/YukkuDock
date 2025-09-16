@@ -1,0 +1,179 @@
+<Window
+  x:Class="YukkuDock.Desktop.Views.MainWindow"
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:ui="using:FluentAvalonia.UI.Controls"
+  xmlns:vm="using:YukkuDock.Desktop.ViewModels"
+  xmlns:model="using:YukkuDock.Core.Models"
+  xmlns:epoxy="https://github.com/kekyo/Epoxy"
+  Title="YukkuDock for YMM4"
+  Width="600"
+  Height="400"
+  d:DesignHeight="250"
+  d:DesignWidth="400"
+  x:DataType="vm:MainWindowViewModel"
+  Icon="/Assets/avalonia-logo.ico"
+  mc:Ignorable="d"
+  epoxy:Fountain.Well="{Binding MainWindowWell}"
+  >
+
+  <Design.DataContext>
+    <!--
+      This only sets the DataContext for the previewer in an IDE,
+      to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs)
+    -->
+    <vm:MainWindowViewModel />
+  </Design.DataContext>
+
+  <DockPanel>
+    <ui:CommandBar
+      HorizontalAlignment="Stretch"
+      VerticalAlignment="Top"
+      Background="{DynamicResource LayerFillColorAltBrush}"
+      DefaultLabelPosition="Right"
+      DockPanel.Dock="Top"
+      >
+      <ui:CommandBar.PrimaryCommands>
+        <ui:CommandBarButton
+          IconSource="Add" Label="起動プロファイル追加"
+          Command="{Binding AddCommand}" />
+      </ui:CommandBar.PrimaryCommands>
+    </ui:CommandBar>
+    <SplitView
+      DisplayMode="Inline"
+      DockPanel.Dock="Bottom"
+      IsPaneOpen="{Binding IsProfileSelected}"
+      OpenPaneLength="150"
+      PanePlacement="Right"
+      >
+      <!-- 右ペイン -->
+      <SplitView.Pane>
+        <ItemsControl Background="{DynamicResource LayerFillColorAltBrush}">
+          <ItemsControl.Styles>
+            <Style Selector="Button">
+              <Setter Property="Margin" Value="5,5,5,0" />
+              <Setter Property="HorizontalAlignment" Value="Stretch" />
+            </Style>
+          </ItemsControl.Styles>
+
+          <!--  縦に並べる  -->
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel HorizontalAlignment="Stretch" Orientation="Vertical" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+
+          <!-- コンテンツ -->
+          <StackPanel Orientation="Vertical" Margin="10" HorizontalAlignment="Center">
+            <TextBlock Text="{Binding SelectedItem.AppVersion}" FontSize="10" />
+            <ui:SymbolIcon FontSize="35" Symbol="Cut" />
+            <TextBox Text="{Binding SelectedItem.Name, Mode=TwoWay}"
+            />
+          </StackPanel>
+
+          <Button Classes="accent">
+            <StackPanel Orientation="Horizontal">
+              <ui:SymbolIcon
+                Margin="0,0,5,0"
+                FontSize="16"
+                Symbol="PlayFilled"
+                />
+              <TextBlock Text="起動" />
+            </StackPanel>
+          </Button>
+          <Button>
+            <StackPanel Orientation="Horizontal">
+              <ui:SymbolIcon
+                Margin="0,0,5,0"
+                FontSize="16"
+                Symbol="Settings"
+                />
+              <TextBlock Text="設定" />
+            </StackPanel>
+          </Button>
+          <Button>
+            <StackPanel Orientation="Horizontal">
+              <ui:SymbolIcon
+                Margin="0,0,5,0"
+                FontSize="16"
+                Symbol="CopyFilled"
+                />
+              <TextBlock Text="複製" />
+            </StackPanel>
+          </Button>
+          <Button>
+            <StackPanel Orientation="Horizontal">
+              <ui:SymbolIcon
+                Margin="0,0,5,0"
+                FontSize="16"
+                Symbol="Delete"
+                />
+              <TextBlock Text="削除" />
+            </StackPanel>
+          </Button>
+
+        </ItemsControl>
+
+
+      </SplitView.Pane>
+
+      <ListBox SelectionMode="Single"
+        ItemsSource="{Binding Profiles}"
+        SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
+        <ListBox.Styles>
+          <Style Selector="ListBoxItem">
+            <Setter Property="Width" Value="75" />
+            <Setter Property="Height" Value="75" />
+            <Setter Property="Margin" Value="10" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+          </Style>
+        </ListBox.Styles>
+
+        <!--  アイテムを横方向に並べ、足りなければ折り返す  -->
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:ProfileViewModel">
+            <StackPanel Orientation="Vertical">
+              <TextBlock Text="{Binding AppVersion}" FontSize="10" />
+              <ui:SymbolIcon FontSize="35" Symbol="Cut" />
+              <TextBlock Text="{Binding Name}" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+
+        <!--
+        <ListBoxItem>
+          <StackPanel Orientation="Vertical">
+            <TextBlock Text="v4.44.1" FontSize="8" />
+            <ui:SymbolIcon FontSize="35" Symbol="Cut" />
+            <TextBlock Text="アイテム0" />
+          </StackPanel>
+        </ListBoxItem>
+        <ListBoxItem>
+          <StackPanel Orientation="Vertical">
+            <ui:SymbolIcon FontSize="35" Symbol="Cut" />
+            <TextBlock Text="アイテム1" />
+          </StackPanel>
+        </ListBoxItem>
+        <ListBoxItem>
+          <StackPanel Orientation="Vertical">
+            <ui:SymbolIcon FontSize="35" Symbol="Cut" />
+            <TextBlock Text="アイテム2" />
+          </StackPanel>
+        </ListBoxItem>
+        -->
+      </ListBox>
+
+    </SplitView>
+
+  </DockPanel>
+
+
+</Window>

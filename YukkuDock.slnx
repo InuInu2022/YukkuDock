@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/YukkuDock.Core/YukkuDock.Core.csproj" />
+    <Project Path="src/YukkuDock.Desktop/YukkuDock.Desktop.csproj" />
+  </Folder>
+</Solution>

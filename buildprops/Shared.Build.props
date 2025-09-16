@@ -1,0 +1,63 @@
+<Project>
+  <!-- See https://aka.ms/dotnet/msbuild/customize for more details on customizing your build -->
+  <PropertyGroup>
+    <LangVersion>13.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <!-- net analyzer -->
+    <EnableNETAnalyzers
+       Condition="'$(Configuration)' == 'Debug'">true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-Recommended</AnalysisLevel>
+    <ReportAnalyzer Condition="'$(Configuration)' == 'Debug'">true</ReportAnalyzer>
+    <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
+    <RunAnalyzersDuringLiveAnalysis>true</RunAnalyzersDuringLiveAnalysis>
+
+    <!-- info -->
+    <Product>YukkuDock for YMM4</Product>
+    <Description>YukkuDock for YMM4</Description>
+    <Copyright></Copyright>
+    <NeutralLanguage>ja-JP</NeutralLanguage>
+    <Version>0.1.0.0</Version>
+
+    <RepositoryUrl>https://github.com/InuInu2022/YMM4ObjectListPlugin</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- AssemblyInfo プロパティ -->
+    <AssemblyTitle>YukkuDock for YMM4</AssemblyTitle>
+    <SupportedCultures>en-US;ja</SupportedCultures>
+    <!-- MinVer -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
+    <MinVerDefaultPreReleaseIdentifiers>preview.0</MinVerDefaultPreReleaseIdentifiers>
+    <MinVerVerbosity>normal</MinVerVerbosity>
+    <MinVerWorkingDirectory>$(MSBuildThisFileDirectory)..\..</MinVerWorkingDirectory>
+  </PropertyGroup>
+
+  <!-- build -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <Deterministic>true</Deterministic>
+    <DeterministicSourceRoot>/_/</DeterministicSourceRoot>
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</RepoRoot>
+    <PathMap>$(RepoRoot)=$(DeterministicSourceRoot)</PathMap>
+
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup
+     Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+
+  <!-- packages -->
+  <ItemGroup>
+    <PackageReference Include="MinVer" Version="6.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>
