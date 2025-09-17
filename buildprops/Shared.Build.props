@@ -4,7 +4,7 @@
     <LangVersion>13.0</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <InvariantGlobalization>false</InvariantGlobalization>
 
 		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
 

@@ -3,20 +3,22 @@
   xmlns="https://github.com/avaloniaui"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:epoxy="https://github.com/kekyo/Epoxy"
+  xmlns:i="https://github.com/projektanker/icons.avalonia"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:model="using:YukkuDock.Core.Models"
   xmlns:ui="using:FluentAvalonia.UI.Controls"
   xmlns:vm="using:YukkuDock.Desktop.ViewModels"
-  xmlns:model="using:YukkuDock.Core.Models"
-  xmlns:epoxy="https://github.com/kekyo/Epoxy"
   Title="YukkuDock for YMM4"
   Width="600"
   Height="400"
   d:DesignHeight="250"
   d:DesignWidth="400"
+  epoxy:Anchor.Pile="{Binding MainWindowPile}"
+  epoxy:Fountain.Well="{Binding MainWindowWell}"
   x:DataType="vm:MainWindowViewModel"
   Icon="/Assets/avalonia-logo.ico"
   mc:Ignorable="d"
-  epoxy:Fountain.Well="{Binding MainWindowWell}"
   >
 
   <Design.DataContext>
@@ -37,8 +39,10 @@
       >
       <ui:CommandBar.PrimaryCommands>
         <ui:CommandBarButton
-          IconSource="Add" Label="起動プロファイル追加"
-          Command="{Binding AddCommand}" />
+          Command="{Binding AddCommand}"
+          IconSource="Add"
+          Label="起動プロファイル追加"
+          />
       </ui:CommandBar.PrimaryCommands>
     </ui:CommandBar>
     <SplitView
@@ -48,7 +52,7 @@
       OpenPaneLength="150"
       PanePlacement="Right"
       >
-      <!-- 右ペイン -->
+      <!--  右ペイン  -->
       <SplitView.Pane>
         <ItemsControl Background="{DynamicResource LayerFillColorAltBrush}">
           <ItemsControl.Styles>
@@ -65,15 +69,30 @@
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
 
-          <!-- コンテンツ -->
-          <StackPanel Orientation="Vertical" Margin="10" HorizontalAlignment="Center">
-            <TextBlock Text="{Binding SelectedItem.AppVersion}" FontSize="10" />
+          <!--  コンテンツ  -->
+          <StackPanel
+            Margin="10"
+            HorizontalAlignment="Center"
+            Orientation="Vertical"
+            >
+            <TextBlock FontSize="10" Text="{Binding SelectedItem.AppVersion}" />
             <ui:SymbolIcon FontSize="35" Symbol="Cut" />
-            <TextBox Text="{Binding SelectedItem.Name, Mode=TwoWay}"
-            />
+            <TextBox Text="{Binding SelectedItem.Name, Mode=TwoWay}" />
           </StackPanel>
 
-          <Button Classes="accent">
+          <Button Classes="accent"
+            IsEnabled="{Binding SelectedItem.IsAppExists}"
+            Command="{Binding OpenAppCommand}">
+            <AdornerLayer.Adorner>
+              <Grid>
+                <ui:InfoBadge
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Top"
+                  Classes="Caution Icon"
+                  IsVisible="{Binding !SelectedItem.IsAppExists}"
+                  />
+              </Grid>
+            </AdornerLayer.Adorner>
             <StackPanel Orientation="Horizontal">
               <ui:SymbolIcon
                 Margin="0,0,5,0"
@@ -83,12 +102,12 @@
               <TextBlock Text="起動" />
             </StackPanel>
           </Button>
-          <Button>
+          <Button Command="{Binding EditProfileCommand}">
             <StackPanel Orientation="Horizontal">
               <ui:SymbolIcon
                 Margin="0,0,5,0"
                 FontSize="16"
-                Symbol="Settings"
+                Symbol="Edit"
                 />
               <TextBlock Text="設定" />
             </StackPanel>
@@ -119,9 +138,11 @@
 
       </SplitView.Pane>
 
-      <ListBox SelectionMode="Single"
+      <ListBox
         ItemsSource="{Binding Profiles}"
-        SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
+        SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+        SelectionMode="Single"
+        >
         <ListBox.Styles>
           <Style Selector="ListBoxItem">
             <Setter Property="Width" Value="75" />
@@ -140,35 +161,44 @@
 
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:ProfileViewModel">
-            <StackPanel Orientation="Vertical">
-              <TextBlock Text="{Binding AppVersion}" FontSize="10" />
-              <ui:SymbolIcon FontSize="35" Symbol="Cut" />
-              <TextBlock Text="{Binding Name}" />
+            <StackPanel
+              Orientation="Vertical"
+              ToolTip.Placement="Bottom"
+              ToolTip.Tip="{Binding Description}"
+              >
+              <AdornerLayer.Adorner>
+                <Grid>
+                  <TextBlock
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="{DynamicResource LayerFillColorAltBrush}"
+                    FontSize="10"
+                    Padding="3"
+                    Text="{Binding AppVersion}"
+                    />
+
+                  <ui:InfoBadge
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Classes="Caution Icon"
+                    IsVisible="{Binding !IsAppExists}"
+                    />
+                </Grid>
+              </AdornerLayer.Adorner>
+
+              <ui:SymbolIcon
+                Margin="5,10,5,0"
+                FontSize="35"
+                Symbol="Cut" />
+              <TextBlock
+                HorizontalAlignment="Center"
+                FontSize="12"
+                Text="{Binding Name}"
+                />
             </StackPanel>
           </DataTemplate>
         </ListBox.ItemTemplate>
 
-        <!--
-        <ListBoxItem>
-          <StackPanel Orientation="Vertical">
-            <TextBlock Text="v4.44.1" FontSize="8" />
-            <ui:SymbolIcon FontSize="35" Symbol="Cut" />
-            <TextBlock Text="アイテム0" />
-          </StackPanel>
-        </ListBoxItem>
-        <ListBoxItem>
-          <StackPanel Orientation="Vertical">
-            <ui:SymbolIcon FontSize="35" Symbol="Cut" />
-            <TextBlock Text="アイテム1" />
-          </StackPanel>
-        </ListBoxItem>
-        <ListBoxItem>
-          <StackPanel Orientation="Vertical">
-            <ui:SymbolIcon FontSize="35" Symbol="Cut" />
-            <TextBlock Text="アイテム2" />
-          </StackPanel>
-        </ListBoxItem>
-        -->
       </ListBox>
 
     </SplitView>

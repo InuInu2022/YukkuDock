@@ -20,11 +20,18 @@ public partial class MainWindowViewModel
 
 	public Well<Window> MainWindowWell { get; }
 		= Well.Factory.Create<Window>();
+	public Pile<Window> MainWindowPile { get; }
+		= Pile.Factory.Create<Window>();
 
 	public bool IsProfileSelected { get; set; }
 
 	public Command? AddCommand { get; private set; }
 	public bool IsAddButtonEnabled { get; set; } = true;
+
+	public Command? OpenAppCommand { get; private set; }
+	public bool IsOpenAppButtonEnabled { get; set; } = true;
+
+	public Command? EditProfileCommand { get; private set; }
 
 	public MainWindowViewModel()
 	{
@@ -44,6 +51,39 @@ public partial class MainWindowViewModel
 				return default;
 			}
 		);
+
+		InitializeCommands();
+	}
+
+	private void InitializeCommands()
+	{
+		OpenAppCommand = Command.Factory.Create(() =>
+		{
+			if (SelectedItem == null || string.IsNullOrWhiteSpace(SelectedItem.AppPath))
+			{
+				return default;
+			}
+			IsAddButtonEnabled = false;
+
+			try
+			{
+				using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+				{
+					FileName = SelectedItem.AppPath,
+					UseShellExecute = true,
+				});
+			}
+			catch (Exception ex)
+			{
+				//
+				IsAddButtonEnabled = true;
+			}
+			IsAddButtonEnabled = true;
+			return default;
+		}/*, () =>
+		{
+			return IsAddButtonEnabled && (SelectedItem?.IsAppExists ?? false);
+		}*/);
 
 		AddCommand = Command.Factory.Create(async () =>
 		{
@@ -65,6 +105,27 @@ public partial class MainWindowViewModel
 			IsAddButtonEnabled = true;
 		},
 		() => IsAddButtonEnabled);
+
+		EditProfileCommand = Command.Factory.Create(async () =>
+		{
+			if (SelectedItem == null)
+			{
+				return;
+			}
+
+			var profileWindow = new ProfileWindow
+			{
+				DataContext = new ProfileWindowViewModel(SelectedItem),
+			};
+
+			await MainWindowPile.RentAsync(async owner =>
+			{
+				await profileWindow
+					.ShowDialog(owner)
+					.ConfigureAwait(true);
+			}).ConfigureAwait(true);
+		}
+		);
 	}
 
 	[PropertyChanged(nameof(SelectedItem))]
@@ -76,10 +137,18 @@ public partial class MainWindowViewModel
 	}
 
 	[PropertyChanged(nameof(IsAddButtonEnabled))]
-	[SuppressMessage("","IDE0051")]
+	[SuppressMessage("", "IDE0051")]
 	private ValueTask IsAddButtonEnabledChangedAsync(bool value)
 	{
 		AddCommand?.ChangeCanExecute();
+		return default;
+	}
+
+	[PropertyChanged(nameof(IsOpenAppButtonEnabled))]
+	[SuppressMessage("", "IDE0051")]
+	private ValueTask IsOpenAppButtonEnabledChangedAsync(bool value)
+	{
+		OpenAppCommand?.ChangeCanExecute();
 		return default;
 	}
 }

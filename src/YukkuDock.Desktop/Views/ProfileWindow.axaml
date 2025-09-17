@@ -1,0 +1,79 @@
+<Window
+  x:Class="YukkuDock.Desktop.ProfileWindow"
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:fa="using:FluentAvalonia.UI.Controls"
+  xmlns:i="https://github.com/projektanker/icons.avalonia"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:vm="using:YukkuDock.Desktop.ViewModels"
+  xmlns:epoxy="https://github.com/kekyo/Epoxy"
+  Title="{Binding WindowTitle}"
+  Width="700"
+  Height="400"
+  d:DesignHeight="400"
+  d:DesignWidth="700"
+  x:DataType="vm:ProfileWindowViewModel"
+  epoxy:Anchor.Pile="{Binding WindowPile}"
+  mc:Ignorable="d"
+  >
+  <Grid ColumnDefinitions="*,5,4*"
+    >
+    <ListBox
+      x:Name="PagesListBox"
+      Grid.Column="0"
+      Grid.Row="0"
+      Background="{DynamicResource LayerFillColorAltBrush}"
+      ItemsSource="{Binding Pages}"
+      SelectedIndex="{Binding SelectedIndex}"
+      SelectedItem="{Binding SelectedContent}"
+      HorizontalAlignment="Stretch"
+      MinWidth="100">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <Grid ColumnDefinitions="Auto,*" Margin="5"
+                HorizontalAlignment="Stretch"
+                >
+            <fa:SymbolIcon Grid.Column="0" Symbol="{Binding Icon}" Width="18" Height="18" Margin="0,0,8,0" />
+            <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center" HorizontalAlignment="Stretch"
+              />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <GridSplitter
+      Grid.Column="1"
+      Grid.Row="0"
+      Width="5"
+      HorizontalAlignment="Stretch"
+      />
+
+    <DockPanel
+      Grid.Column="2">
+      <Border
+        DockPanel.Dock="Bottom"
+        Background="{DynamicResource LayerFillColorAltBrush}"
+        Padding="10"
+        >
+        <Button
+          HorizontalAlignment="Right"
+          Classes="accent"
+          Padding="10,5"
+          Command="{Binding CloseCommand}"
+          >
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+            <fa:SymbolIcon Symbol="Accept" Width="16" Height="16" Margin="0,0,8,0" />
+            <TextBlock Text="閉じる" VerticalAlignment="Center"
+              Margin="10,5" FontWeight="Bold" />
+          </StackPanel>
+        </Button>
+      </Border>
+
+      <ContentControl
+        Background="{DynamicResource LayerFillColorDefaultBrush}"
+        Content="{Binding SelectedContent.Content}" />
+
+    </DockPanel>
+  </Grid>
+</Window>
