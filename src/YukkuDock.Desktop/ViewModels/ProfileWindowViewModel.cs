@@ -1,12 +1,9 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Epoxy;
 using FluentAvalonia.UI.Controls;
-using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Windowing;
-
 using YukkuDock.Desktop.Views;
 
 namespace YukkuDock.Desktop.ViewModels;
@@ -41,7 +38,7 @@ public partial class ProfileWindowViewModel
 			MimeTypes = ["application/x-msdownload"],
 		};
 
-	bool _isLoaded = false;
+	bool _isLoaded;
 
 	public ProfileWindowViewModel(ProfileViewModel profileVm)
 	{
@@ -71,71 +68,71 @@ public partial class ProfileWindowViewModel
 			{
 				SelectedContent = Pages[0];
 
-				await LoadPageContentAsync(Pages[0])
-					.ConfigureAwait(true);
+				await LoadPageContentAsync(Pages[0]).ConfigureAwait(true);
 
 				_isLoaded = true;
 			}
 		);
+		SelectAppPathCommand = Command.Factory.Create(LoadApplicationAsync);
+		CloseCommand = Command.Factory.Create(SaveProfileAndCloseAsync, () => IsClosable);
+	}
 
-		SelectAppPathCommand = Command.Factory.Create(async () =>
-		{
-			await WindowPile
-				.RentAsync(async window =>
-				{
-					var provider = window.StorageProvider;
-
-					var result = await provider
-						.OpenFilePickerAsync(
-							new() { Title = "YMM4の実行ファイルを選択", FileTypeFilter = [ExeFile] }
-						)
-						.ConfigureAwait(true);
-
-					if (result is not [])
-					{
-						ProfileVm.AppPath = result[0].Path.AbsolutePath;
-					}
-
-					if (window.DataContext is MainWindowViewModel mwVm)
-					{
-						mwVm.OpenAppCommand?.ChangeCanExecute();
-					}
-				})
-				.ConfigureAwait(true);
-
-			//version update
-			var info = FileVersionInfo.GetVersionInfo(ProfileVm.AppPath);
-			Debug.WriteLine(info.FileVersion);
-			if (Version.TryParse(info.FileVersion, out var version))
+	async ValueTask LoadApplicationAsync()
+	{
+		await WindowPile
+			.RentAsync(async window =>
 			{
-				ProfileVm.AppVersion = version;
-			}
-		});
+				var provider = window.StorageProvider;
 
-		CloseCommand = Command.Factory.Create(
-			async () =>
-			{
-				IsClosable = false;
-
-				//TODO: save profile settings
-
-				// Close the window
-				await WindowPile
-					.RentAsync(
-						(window) =>
-						{
-							window.Close();
-
-							return default;
-						}
+				var result = await provider
+					.OpenFilePickerAsync(
+						new() { Title = "YMM4の実行ファイルを選択", FileTypeFilter = [ExeFile] }
 					)
 					.ConfigureAwait(true);
 
-				IsClosable = true;
-			},
-			() => IsClosable
-		);
+				if (result is not [])
+				{
+					ProfileVm.AppPath = result[0].Path.AbsolutePath;
+				}
+
+				if (window.DataContext is MainWindowViewModel mwVm)
+				{
+					mwVm.OpenAppCommand?.ChangeCanExecute();
+				}
+			})
+			.ConfigureAwait(true);
+
+		//version update
+		var info = FileVersionInfo.GetVersionInfo(ProfileVm.AppPath);
+		Debug.WriteLine(info.FileVersion);
+		if (Version.TryParse(info.FileVersion, out var version))
+		{
+			ProfileVm.AppVersion = version;
+		}
 	}
+
+	async ValueTask SaveProfileAndCloseAsync()
+	{
+		IsClosable = false;
+
+		//TODO: save profile settings
+
+		// Close the window
+		await WindowPile
+			.RentAsync(
+				(window) =>
+				{
+					window.Close();
+
+					return default;
+				}
+			)
+			.ConfigureAwait(true);
+
+		IsClosable = true;
+	}
+
+
 
 	async Task LoadPageContentAsync(PageItem value)
 	{
@@ -156,7 +153,6 @@ public partial class ProfileWindowViewModel
 			.ConfigureAwait(true);
 	}
 
-
 	[PropertyChanged(nameof(IsClosable))]
 	[SuppressMessage("", "IDE0051")]
 	private ValueTask IsClosableChangedAsync(bool value)
@@ -176,6 +172,4 @@ public partial class ProfileWindowViewModel
 
 		await LoadPageContentAsync(value).ConfigureAwait(true);
 	}
-
-
 }
