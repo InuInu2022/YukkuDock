@@ -14,7 +14,7 @@
   <StackPanel>
     <TextBlock
       Margin="10"
-      Text="プロファイルのメモを残しておくことができます。"
+      Text="起動プロファイルのメモを残しておくことができます。"
       />
     <TextBox
       Margin="10"

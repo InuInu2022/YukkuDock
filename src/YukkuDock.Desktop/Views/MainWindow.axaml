@@ -72,24 +72,31 @@
           <!--  コンテンツ  -->
           <StackPanel
             Margin="10"
-            HorizontalAlignment="Center"
+            HorizontalAlignment="Stretch"
             Orientation="Vertical"
             >
-            <TextBlock FontSize="10" Text="{Binding SelectedItem?.AppVersion, Converter={StaticResource EmptyVersionIfNull}}" />
-            <ui:SymbolIcon FontSize="35" Symbol="Cut" />
-            <TextBox Text="{Binding SelectedItem?.Name, Mode=TwoWay, Converter={StaticResource EmptyIfNull}}" />
+            <TextBlock FontSize="10" Text="{Binding SelectedItem.AppVersion, Converter={StaticResource EmptyVersionIfNull}}" />
+            <ui:BitmapIcon
+                Width="50"
+                Height="50"
+                Margin="10"
+                UriSource="avares://YukkuDock.Desktop/Assets/profile_default.png"
+                />
+            <TextBox Text="{Binding SelectedItem.Name, Mode=TwoWay}" TextWrapping="Wrap" />
           </StackPanel>
 
-          <Button Classes="accent"
-            IsEnabled="{Binding SelectedItem?.IsAppExists, Converter={StaticResource FalseIfNull}}"
-            Command="{Binding OpenAppCommand}">
+          <Button
+            Classes="accent"
+            Command="{Binding OpenAppCommand}"
+            IsEnabled="{Binding SelectedItem.IsAppExists, FallbackValue=False}"
+            >
             <AdornerLayer.Adorner>
               <Grid>
                 <ui:InfoBadge
                   HorizontalAlignment="Right"
                   VerticalAlignment="Top"
-                  Classes="Caution Icon"
-                  IsVisible="{Binding !SelectedItem?.IsAppExists, Converter={StaticResource FalseIfNull}}"
+                  Classes="Critical Icon"
+                  IsVisible="{Binding !SelectedItem.IsAppExists, FallbackValue=True}"
                   />
               </Grid>
             </AdornerLayer.Adorner>
@@ -103,6 +110,16 @@
             </StackPanel>
           </Button>
           <Button Command="{Binding EditProfileCommand}">
+            <AdornerLayer.Adorner>
+              <Grid>
+                <ui:InfoBadge
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Top"
+                  Classes="Caution Icon"
+                  IsVisible="{Binding !SelectedItem.IsAppExists, FallbackValue=True}"
+                  />
+              </Grid>
+            </AdornerLayer.Adorner>
             <StackPanel Orientation="Horizontal">
               <ui:SymbolIcon
                 Margin="0,0,5,0"
@@ -122,6 +139,7 @@
               <TextBlock Text="複製" />
             </StackPanel>
           </Button>
+          <Separator />
           <Button>
             <StackPanel Orientation="Horizontal">
               <ui:SymbolIcon
@@ -145,10 +163,11 @@
         >
         <ListBox.Styles>
           <Style Selector="ListBoxItem">
-            <Setter Property="Width" Value="75" />
-            <Setter Property="Height" Value="75" />
-            <Setter Property="Margin" Value="10" />
+            <Setter Property="Width" Value="80" />
+            <Setter Property="Height" Value="100" />
+            <Setter Property="Margin" Value="5,2.5" />
             <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Padding" Value="5" />
           </Style>
         </ListBox.Styles>
 
@@ -166,15 +185,30 @@
               ToolTip.Placement="Bottom"
               ToolTip.Tip="{Binding Description}"
               >
+              <ui:BitmapIcon
+                Width="35"
+                Height="35"
+                Margin="5,10,5,0"
+                UriSource="avares://               YukkuDock.Desktop/Assets/profile_default.png"
+                />
+              <TextBlock
+                HorizontalAlignment="Center"
+                FontSize="12"
+                Text="{Binding Name}"
+                TextWrapping="WrapWithOverflow"
+                Theme="{StaticResource CaptionTextBlockStyle}"
+                />
+
               <AdornerLayer.Adorner>
-                <Grid>
+                <Grid ZIndex="10">
                   <TextBlock
+                    Padding="2,2,5,5"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Top"
                     Background="{DynamicResource LayerFillColorAltBrush}"
                     FontSize="10"
-                    Padding="3"
-                    Text="{Binding AppVersion}"
+                    Text="{Binding AppVersion, FallbackValue='?'}"
+                    ZIndex="10"
                     />
 
                   <ui:InfoBadge
@@ -186,15 +220,7 @@
                 </Grid>
               </AdornerLayer.Adorner>
 
-              <ui:SymbolIcon
-                Margin="5,10,5,0"
-                FontSize="35"
-                Symbol="Cut" />
-              <TextBlock
-                HorizontalAlignment="Center"
-                FontSize="12"
-                Text="{Binding Name}"
-                />
+
             </StackPanel>
           </DataTemplate>
         </ListBox.ItemTemplate>

@@ -27,7 +27,7 @@
       <ui:SettingsExpander.Footer>
 
         <StackPanel Orientation="Horizontal" Spacing="4">
-          <TextBlock Text="{Binding ProfileVm.AppVersion}" />
+          <TextBlock Text="{Binding ProfileVm.AppVersion, FallbackValue='不明'}" />
         </StackPanel>
       </ui:SettingsExpander.Footer>
     </ui:SettingsExpander>
@@ -35,7 +35,17 @@
     <ui:SettingsExpander Name="SettingsExpander2"
       IconSource="FolderLink"
       Header="インストール先"
-      Description="{Binding ProfileVm.AppPath}">
+      Description="{Binding ProfileVm.AppPath, FallbackValue='YMM4のインストール先を選択してください'}">
+      <AdornerLayer.Adorner>
+        <Grid>
+          <ui:InfoBadge
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Classes="Caution Icon"
+            IsVisible="{Binding !ProfileVm.IsAppExists, Converter={StaticResource FalseIfNull}}"
+            />
+        </Grid>
+      </AdornerLayer.Adorner>
       <ui:SettingsExpander.Footer>
 
         <StackPanel Orientation="Horizontal" Spacing="4">

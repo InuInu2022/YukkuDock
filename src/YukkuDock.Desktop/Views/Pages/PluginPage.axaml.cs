@@ -4,9 +4,9 @@ using Avalonia.Markup.Xaml;
 
 namespace YukkuDock.Desktop.Views;
 
-public partial class HomePage : UserControl
+public partial class PluginPage : UserControl
 {
-    public HomePage()
+    public PluginPage()
     {
         InitializeComponent();
     }

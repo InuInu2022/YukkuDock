@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
@@ -17,12 +18,13 @@ public partial class ProfileWindowViewModel
 	public int SelectedIndex { get; set; }
 	public PageItem? SelectedContent { get; set; }
 
-	public string WindowTitle {get; private set;}
+	public string WindowTitle { get; private set; }
 
 	public Pile<AppWindow> WindowPile { get; } =
 		Pile.Factory.Create<AppWindow>();
 
 	public Command? CloseCommand { get; set; }
+	public bool IsClosable { get; set; } = true;
 
 	public Command? SelectAppPathCommand { get; set; }
 
@@ -71,7 +73,8 @@ public partial class ProfileWindowViewModel
 					ProfileVm.AppPath = result[0].Path.AbsolutePath;
 				}
 
-				if(window.DataContext is MainWindowViewModel mwVm){
+				if (window.DataContext is MainWindowViewModel mwVm)
+				{
 					mwVm.OpenAppCommand?.ChangeCanExecute();
 				}
 			}).ConfigureAwait(true);
@@ -87,16 +90,29 @@ public partial class ProfileWindowViewModel
 
 		CloseCommand = Command.Factory.Create(async () =>
 		{
+			IsClosable = false;
+
 			//TODO: save profile settings
 
 			// Close the window
 			await WindowPile.RentAsync((window) =>
 			{
 				window.Close();
+
 				return default;
 			}).ConfigureAwait(true);
-		});
+
+			IsClosable = true;
+		}, () => IsClosable);
 	}
 
+	[PropertyChanged(nameof(IsClosable))]
+	[SuppressMessage("","IDE0051")]
+	private ValueTask IsClosableChangedAsync(bool value)
+	{
+		if (IsClosable == value) return default;
+		CloseCommand?.ChangeCanExecute();
+		return default;
+	}
 
 }
