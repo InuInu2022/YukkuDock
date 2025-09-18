@@ -2,7 +2,7 @@ namespace YukkuDock.Core.Models;
 
 public record PluginPack : ProfileEntityBase, IBackupable, IActivatable
 {
-	public string Version { get; set; } = string.Empty;
+	public Version? Version { get; set; }
 	public string Author { get; set; } = string.Empty;
 	public string InstalledPath { get; set; } = string.Empty;
 

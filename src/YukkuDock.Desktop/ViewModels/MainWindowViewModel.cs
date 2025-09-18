@@ -49,6 +49,19 @@ public partial class MainWindowViewModel
 					new(new() { Name = "アイテム2", AppVersion = new Version(4, 44, 3) }),
 				];
 
+				foreach (var profile in Profiles)
+				{
+					profile.PluginPacks = [.. Enumerable
+						.Range(0, 30)
+						.Select(x => new PluginPack()
+						{
+							Name = $"プラグイン{x}",
+							Version = new Version(x, x, 0),
+							Author = $"作者{x}",
+						}),
+					];
+				}
+
 				return default;
 			}
 		);

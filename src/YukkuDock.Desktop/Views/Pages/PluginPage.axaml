@@ -16,16 +16,104 @@
     <vm:PluginPageViewModel />
   </UserControl.DataContext>
   <DockPanel Margin="10">
-    <TextBlock
-      DockPanel.Dock="Top" Text="プラグイン"
-      Theme="{StaticResource SubtitleTextBlockStyle}"
-       />
+    <Grid
+      Margin="0,0,0,10"
+      HorizontalAlignment="Stretch"
+      ColumnDefinitions="Auto, *"
+      DockPanel.Dock="Top"
+      >
+      <TextBlock
+        Grid.Column="0"
+        VerticalAlignment="Center"
+        Text="プラグイン管理"
+        Theme="{StaticResource SubtitleTextBlockStyle}"
+        />
+
+      <StackPanel Grid.Column="1"
+        Orientation="Horizontal"
+        HorizontalAlignment="Right">
+        <Button Margin="5,2,0,2" HorizontalAlignment="Right">
+          <StackPanel Orientation="Horizontal">
+            <ui:SymbolIcon
+              Margin="0,0,5,0"
+              FontSize="16"
+              Symbol="OpenFolder"
+              />
+            <TextBlock Text="プラグインフォルダ開く" />
+          </StackPanel>
+        </Button>
+
+        <Button Margin="5,2,0,2" HorizontalAlignment="Right">
+          <StackPanel Orientation="Horizontal">
+            <ui:SymbolIcon
+              Margin="0,0,5,0"
+              FontSize="16"
+              Symbol="Add"
+              />
+            <TextBlock Text="追加" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+
+
+    </Grid>
     <StackPanel
-      DockPanel.Dock="Right">
+      MinWidth="150"
+      Background="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"
+      DockPanel.Dock="Right"
+      >
+      <StackPanel.Styles>
+        <Style Selector="StackPanel &gt; :is(Button)">
+          <Setter Property="Margin" Value="5, 2" />
+          <Setter Property="HorizontalAlignment" Value="Stretch" />
+        </Style>
+      </StackPanel.Styles>
       <Button Content="Add Plugin" />
+      <Button Content="Add Plugin" />
+      <SplitButton>
+        <SplitButton.Flyout>
+          <ui:FAMenuFlyout>
+            <!--  use the GroupName property to group radio items together  -->
+            <ui:RadioMenuFlyoutItem
+              GroupName="BackupGroup"
+              IsChecked="True"
+              Text="選択中のプラグイン"
+              />
+            <ui:RadioMenuFlyoutItem
+              GroupName="BackupGroup"
+              IsChecked="True"
+              Text="全プラグイン"
+              />
+          </ui:FAMenuFlyout>
+        </SplitButton.Flyout>
+        <StackPanel Orientation="Horizontal">
+          <ui:SymbolIcon
+            Margin="0,0,5,0"
+            FontSize="16"
+            Symbol="Delete"
+            />
+          <TextBlock Text="バックアップ" />
+        </StackPanel>
+      </SplitButton>
+      <Button>
+        <StackPanel Orientation="Horizontal">
+          <ui:SymbolIcon
+            Margin="0,0,5,0"
+            FontSize="16"
+            Symbol="Delete"
+            />
+          <TextBlock Text="削除" />
+        </StackPanel>
+      </Button>
     </StackPanel>
 
-    <TreeDataGrid Source="{Binding PluginsSource}" />
+    <TreeDataGrid Source="{Binding PluginsSource}">
+      <TreeDataGrid.Styles>
+        <Style Selector="TreeDataGrid TreeDataGridRow:nth-child(2n)">
+          <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorSecondaryBrush}" />
+        </Style>
+      </TreeDataGrid.Styles>
+    </TreeDataGrid>
 
   </DockPanel>
 </UserControl>
