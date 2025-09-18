@@ -17,6 +17,8 @@ public class PluginPackViewModel(PluginPack pluginPack)
 	public string Author { get; init; } = pluginPack.Author;
 
 	public string InstalledPath { get; set; } = pluginPack.InstalledPath;
+
+	public string FolderName { get; } = "ABC";
 	public string MovedPath { get; set; } = pluginPack.MovedPath;
 	public bool IsIgnoredBackup { get; set; } = pluginPack.IsIgnoredBackup;
 	public string BackupPath { get; set; } = pluginPack.BackupPath;

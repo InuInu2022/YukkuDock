@@ -63,6 +63,7 @@ public class PluginPageViewModel : IDisposable
 			{
 				new TemplateColumn<PluginPackViewModel>("有効", IsEnabledTemplate),
 				new TextColumn<PluginPackViewModel, string>("プラグイン名", x => x.Name),
+				new TextColumn<PluginPackViewModel, string>("フォルダ", x => x.FolderName),
 				new TextColumn<PluginPackViewModel, string>("バージョン", x => x.Version),
 				new TextColumn<PluginPackViewModel, string>("作者", x => x.Author),
 				new TemplateColumn<PluginPackViewModel>("バッグアップ可", IsIgnoredBackupTemplate),
