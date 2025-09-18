@@ -75,13 +75,13 @@
             HorizontalAlignment="Center"
             Orientation="Vertical"
             >
-            <TextBlock FontSize="10" Text="{Binding SelectedItem.AppVersion}" />
+            <TextBlock FontSize="10" Text="{Binding SelectedItem?.AppVersion, Converter={StaticResource EmptyVersionIfNull}}" />
             <ui:SymbolIcon FontSize="35" Symbol="Cut" />
-            <TextBox Text="{Binding SelectedItem.Name, Mode=TwoWay}" />
+            <TextBox Text="{Binding SelectedItem?.Name, Mode=TwoWay, Converter={StaticResource EmptyIfNull}}" />
           </StackPanel>
 
           <Button Classes="accent"
-            IsEnabled="{Binding SelectedItem.IsAppExists}"
+            IsEnabled="{Binding SelectedItem?.IsAppExists, Converter={StaticResource FalseIfNull}}"
             Command="{Binding OpenAppCommand}">
             <AdornerLayer.Adorner>
               <Grid>
@@ -89,7 +89,7 @@
                   HorizontalAlignment="Right"
                   VerticalAlignment="Top"
                   Classes="Caution Icon"
-                  IsVisible="{Binding !SelectedItem.IsAppExists}"
+                  IsVisible="{Binding !SelectedItem?.IsAppExists, Converter={StaticResource FalseIfNull}}"
                   />
               </Grid>
             </AdornerLayer.Adorner>

@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Controls;
@@ -75,7 +76,7 @@ public partial class MainWindowViewModel
 			}
 			catch (Exception ex)
 			{
-				//
+				Debug.WriteLine(ex.Message);
 				IsAddButtonEnabled = true;
 			}
 			IsAddButtonEnabled = true;
@@ -94,7 +95,7 @@ public partial class MainWindowViewModel
 			var newProfile = new Profile
 			{
 				Name = "新しいプロファイル",
-				AppVersion = new Version(4, 45, 5),
+				//AppVersion = new Version(4, 45, 5),
 				Description = "ボタンで追加された新しいプロファイルの説明",
 			};
 			var newProfileViewModel = new ProfileViewModel(newProfile);
