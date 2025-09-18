@@ -70,9 +70,10 @@
         </Button>
       </Border>
 
-      <ContentControl
-        Background="{DynamicResource LayerFillColorDefaultBrush}"
-        Content="{Binding SelectedContent.Content}" />
+      <ui:Frame
+        x:Name="MainFrame"
+        epoxy:Anchor.Pile="{Binding FramePile}"
+        />
 
     </DockPanel>
   </Grid>

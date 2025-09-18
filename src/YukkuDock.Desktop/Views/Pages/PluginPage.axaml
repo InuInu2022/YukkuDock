@@ -1,8 +1,28 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="YukkuDock.Desktop.Views.PluginPage">
-  Welcome to Avalonia!
+<UserControl
+  x:Class="YukkuDock.Desktop.Views.PluginPage"
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:epoxy="https://github.com/kekyo/Epoxy"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:ui="using:FluentAvalonia.UI.Controls"
+  xmlns:vm="using:YukkuDock.Desktop.ViewModels"
+  d:DesignHeight="450"
+  d:DesignWidth="800"
+  x:DataType="vm:ProfileWindowViewModel"
+  mc:Ignorable="d"
+  >
+  <DockPanel Margin="10">
+    <TextBlock
+      DockPanel.Dock="Top" Text="プラグイン"
+      Theme="{StaticResource SubtitleTextBlockStyle}"
+       />
+    <StackPanel
+      DockPanel.Dock="Right">
+      <Button Content="Add Plugin" />
+    </StackPanel>
+
+    <TreeDataGrid />
+
+  </DockPanel>
 </UserControl>

@@ -7,6 +7,7 @@ using Avalonia.Platform.Storage;
 using Epoxy;
 
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Windowing;
 
 namespace YukkuDock.Desktop.ViewModels;
@@ -23,14 +24,17 @@ public partial class ProfileWindowViewModel
 	public Pile<AppWindow> WindowPile { get; } =
 		Pile.Factory.Create<AppWindow>();
 
+	public Pile<Frame> FramePile { get; } =
+		Pile.Factory.Create<Frame>();
+
 	public Command? CloseCommand { get; set; }
 	public bool IsClosable { get; set; } = true;
 
 	public Command? SelectAppPathCommand { get; set; }
 
 	public IReadOnlyList<PageItem> Pages { get; } = [
-		new("バージョン", Symbol.Settings, new Views.SettingsPage()),
-		new("プラグイン", Symbol.Library, new Views.HomePage()),
+		new("バージョン", Symbol.Tag, new Views.SettingsPage()),
+		new("プラグイン", Symbol.Library, new Views.PluginPage()),
 		new("メモ", Symbol.Document, new Views.MemoPage()),
 		/*
 		new("テンプレート", Symbol.Home, new Views.HomePage(), false),
@@ -107,12 +111,28 @@ public partial class ProfileWindowViewModel
 	}
 
 	[PropertyChanged(nameof(IsClosable))]
-	[SuppressMessage("","IDE0051")]
+	[SuppressMessage("", "IDE0051")]
 	private ValueTask IsClosableChangedAsync(bool value)
 	{
-		if (IsClosable == value) return default;
 		CloseCommand?.ChangeCanExecute();
 		return default;
+	}
+
+	[PropertyChanged(nameof(SelectedContent))]
+	[SuppressMessage("","IDE0051")]
+	private async ValueTask SelectedContentChangedAsync(PageItem? value)
+	{
+		if (value?.Content is null){
+			value = Pages[0];
+		}
+
+		await FramePile.RentAsync((frame) =>
+		{
+			var type = value.Content.GetType();
+			frame.Navigate(type);
+			return default;
+		}).ConfigureAwait(true);
+
 	}
 
 }

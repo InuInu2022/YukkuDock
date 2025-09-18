@@ -12,7 +12,7 @@ namespace YukkuDock.Desktop.ViewModels;
 [ViewModel]
 public partial class ProfileViewModel(Profile profile)
 {
-	readonly Profile profile = profile;
+	readonly Profile _profile = profile;
 
 	public string Name { get; set; } = profile.Name;
 	public Version? AppVersion { get; set; } = profile.AppVersion;
@@ -25,9 +25,9 @@ public partial class ProfileViewModel(Profile profile)
 	[SuppressMessage("", "IDE0051")]
 	private ValueTask NameChangedAsync(string value)
 	{
-		if (!string.Equals(profile.Name, value, StringComparison.Ordinal))
+		if (!string.Equals(_profile.Name, value, StringComparison.Ordinal))
 		{
-			profile.Name = value;
+			_profile.Name = value;
 		}
 		return default;
 	}
@@ -36,9 +36,9 @@ public partial class ProfileViewModel(Profile profile)
 	[SuppressMessage("", "IDE0051")]
 	private ValueTask DescriptionChangedAsync(string value)
 	{
-		if (!string.Equals(profile.Description, value, StringComparison.Ordinal))
+		if (!string.Equals(_profile.Description, value, StringComparison.Ordinal))
 		{
-			profile.Description = value;
+			_profile.Description = value;
 		}
 		return default;
 	}
@@ -47,9 +47,9 @@ public partial class ProfileViewModel(Profile profile)
 	[SuppressMessage("", "IDE0051")]
 	private ValueTask AppPathChangedAsync(string value)
 	{
-		if (!string.Equals(profile.AppPath, value, StringComparison.Ordinal))
+		if (!string.Equals(_profile.AppPath, value, StringComparison.Ordinal))
 		{
-			profile.AppPath = value;
+			_profile.AppPath = value;
 			IsAppExists = File.Exists(value);
 		}
 		return default;
@@ -59,9 +59,9 @@ public partial class ProfileViewModel(Profile profile)
 	[SuppressMessage("", "IDE0051")]
 	private ValueTask AppVersionChangedAsync(Version? value)
 	{
-		if (!Equals(profile.AppVersion, value))
+		if (!Equals(_profile.AppVersion, value))
 		{
-			profile.AppVersion = value;
+			_profile.AppVersion = value;
 		}
 		return default;
 	}
