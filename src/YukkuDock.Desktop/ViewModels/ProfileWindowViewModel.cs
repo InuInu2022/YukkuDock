@@ -67,13 +67,14 @@ public partial class ProfileWindowViewModel
 	{
 		WindowWell.Add(
 			"Loaded",
-			() =>
+			async () =>
 			{
 				SelectedContent = Pages[0];
 
-				_isLoaded = true;
+				await LoadPageContentAsync(Pages[0])
+					.ConfigureAwait(true);
 
-				return default;
+				_isLoaded = true;
 			}
 		);
 
@@ -136,6 +137,25 @@ public partial class ProfileWindowViewModel
 		);
 	}
 
+	async Task LoadPageContentAsync(PageItem value)
+	{
+		await FramePile
+			.RentAsync(
+				(frame) =>
+				{
+					var type = value.Content.GetType();
+					var result = frame.Navigate(type);
+
+					if (result && frame.Content is PluginPage page)
+					{
+						page.SetProfileViewModel(ProfileVm);
+					}
+					return default;
+				}
+			)
+			.ConfigureAwait(true);
+	}
+
 
 	[PropertyChanged(nameof(IsClosable))]
 	[SuppressMessage("", "IDE0051")]
@@ -154,19 +174,8 @@ public partial class ProfileWindowViewModel
 			return;
 		}
 
-		await FramePile
-			.RentAsync(
-				(frame) =>
-				{
-					var type = value.Content.GetType();
-					var result = frame.Navigate(type);
-
-					if(result && frame.Content is PluginPage page){
-						page.SetProfileViewModel(ProfileVm);
-					}
-					return default;
-				}
-			)
-			.ConfigureAwait(true);
+		await LoadPageContentAsync(value).ConfigureAwait(true);
 	}
+
+
 }
