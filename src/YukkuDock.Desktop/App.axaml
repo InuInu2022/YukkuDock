@@ -13,11 +13,10 @@
         <conv:EmptyIfNullConverter x:Key="EmptyIfNull" />
         <conv:EmptyVersionIfNullConverter x:Key="EmptyVersionIfNull" />
         <conv:ControlToTypeConverter x:Key="ControlToTypeConverter" />
-        <Color x:Key="SystemListLowColor">#FFDDDDDD</Color>
+
     </Application.Resources>
     <Application.Styles>
         <sty:FluentAvaloniaTheme />
-        <StyleInclude
-            Source="avares://Avalonia.Controls.TreeDataGrid/Themes/Fluent.axaml"/>
+        <StyleInclude Source="avares://Avalonia.Controls.TreeDataGrid/Themes/Generic.axaml"/>
     </Application.Styles>
 </Application>

@@ -51,7 +51,7 @@ public partial class ProfileWindowViewModel
 		Pages =
 		[
 			new("バージョン", Symbol.Tag, new Views.SettingsPage()),
-			new("プラグイン", Symbol.Library, new Views.PluginPage(ProfileVm)),
+			new("プラグイン", Symbol.Library, new Views.PluginPage()),
 			new("メモ", Symbol.Document, new Views.MemoPage()),
 			/*
 			new("テンプレート", Symbol.Home, new Views.HomePage(), false),

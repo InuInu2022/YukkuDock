@@ -1,37 +1,33 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
-
 using Epoxy;
-
 using YukkuDock.Core.Models;
 
 namespace YukkuDock.Desktop.ViewModels;
 
 [ViewModel]
-public class PluginPageViewModel: IDisposable
+public class PluginPageViewModel : IDisposable
 {
 	private bool _disposedValue;
 
+	public ProfileViewModel? ProfileVm { get; set; }
 
-	public ProfileViewModel ProfileVm { get; }
+	public FlatTreeDataGridSource<PluginPack>? PluginsSource { get; private set; }
 
-	public FlatTreeDataGridSource<PluginPack> PluginsSource { get; private set; }
+	ObservableCollection<PluginPack>? _plugins { get; set; }
 
-	ObservableCollection<PluginPack> _plugins {get; set;}
-
-	public PluginPageViewModel(ProfileViewModel? profileVm = null)
+	public PluginPageViewModel()
 	{
-		ProfileVm = profileVm  ?? new ProfileViewModel(new());
-		InitializePlugins();
+
 	}
 
-	[MemberNotNull(nameof(PluginsSource))]
 	[MemberNotNull(nameof(_plugins))]
 	private void InitializePlugins()
 	{
+		if(ProfileVm is null) return;
+
 		_plugins = new ObservableCollection<PluginPack>(ProfileVm.PluginPacks);
 
 		PluginsSource = new FlatTreeDataGridSource<PluginPack>(_plugins)
@@ -46,13 +42,26 @@ public class PluginPageViewModel: IDisposable
 		};
 	}
 
+	[PropertyChanged(nameof(ProfileVm))]
+	[SuppressMessage("","IDE0051")]
+	private ValueTask ProfileVmChangedAsync(ProfileViewModel? value)
+	{
+		if (value is not null)
+		{
+			ProfileVm = value;
+			InitializePlugins();
+		}
+
+		return default;
+	}
+
 	protected virtual void Dispose(bool disposing)
 	{
 		if (!_disposedValue)
 		{
 			if (disposing)
 			{
-				PluginsSource.Dispose();
+				PluginsSource?.Dispose();
 			}
 
 			// アンマネージド リソース (アンマネージド オブジェクト) を解放し、ファイナライザーをオーバーライドします
