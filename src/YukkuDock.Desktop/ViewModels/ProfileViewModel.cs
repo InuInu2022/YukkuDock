@@ -19,6 +19,8 @@ public partial class ProfileViewModel(Profile profile)
 	public string Description { get; set; } = profile.Description;
 	public string AppPath { get; set; } = profile.AppPath;
 
+	public ICollection<PluginPack> PluginPacks { get; set; } = profile.PluginPacks;
+
 	public bool IsAppExists { get; private set; }
 
 	[PropertyChanged(nameof(Name))]
