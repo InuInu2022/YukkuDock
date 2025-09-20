@@ -80,6 +80,7 @@ public class PluginPageViewModel
 			"Loaded",
 			async () =>
 			{
+				await Task.Delay(500).ConfigureAwait(true);
 				await InitializePluginsAsync().ConfigureAwait(true);
 			}
 		);
