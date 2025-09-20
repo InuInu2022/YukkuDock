@@ -7,6 +7,7 @@
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   xmlns:ui="using:FluentAvalonia.UI.Controls"
   xmlns:vm="using:YukkuDock.Desktop.ViewModels"
+  xmlns:shimmer="using:SimpleShimmer.Avalonia"
   d:DesignHeight="450"
   d:DesignWidth="800"
   epoxy:Anchor.Pile="{Binding PagePile}"
@@ -119,7 +120,8 @@
       </Button>
     </StackPanel>
 
-    <TreeDataGrid Source="{Binding PluginsSource}">
+    <TreeDataGrid Source="{Binding PluginsSource}"
+      IsEnabled="{Binding !IsUpdatingPlugins}">
       <TreeDataGrid.Styles>
         <Style Selector="TreeDataGrid TreeDataGridRow:nth-child(2n)">
           <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorSecondaryBrush}" />

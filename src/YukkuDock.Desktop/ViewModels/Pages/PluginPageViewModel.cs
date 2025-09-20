@@ -32,7 +32,9 @@ public class PluginPageViewModel : IDisposable
 
 	public Command? OpenPluginFolderCommand { get; set; }
 	public Command? UpdatePluginsCommand { get; set; }
+
 	public bool CanOpenPluginFolder { get; set; }
+	public bool IsUpdatingPlugins { get; set; }
 
 	ObservableCollection<PluginPackViewModel>? _plugins { get; set; } = [];
 
@@ -131,17 +133,25 @@ public class PluginPageViewModel : IDisposable
 				.ConfigureAwait(true);
 		});
 
-		UpdatePluginsCommand = Command.Factory.CreateEasy(async () =>
+		UpdatePluginsCommand = Command.Factory.Create(async () =>
 		{
+			IsUpdatingPlugins = true;
+			UpdatePluginsCommand?.ChangeCanExecute();
+
 			if (ProfileVm is null)
 			{
+				IsUpdatingPlugins = false;
+				UpdatePluginsCommand?.ChangeCanExecute();
 				return;
 			}
 
 			if (!PathManager.TryGetPluginFolder(ProfileVm.AppPath, out var folder))
 			{
+				IsUpdatingPlugins = false;
+				UpdatePluginsCommand?.ChangeCanExecute();
 				return;
 			}
+
 
 			var sw = Stopwatch.StartNew();
 
@@ -152,7 +162,9 @@ public class PluginPageViewModel : IDisposable
 
 			sw.Stop();
 			Debug.WriteLine($"Plugin update completed in {sw.ElapsedMilliseconds} ms");
-		});
+			IsUpdatingPlugins = false;
+			UpdatePluginsCommand?.ChangeCanExecute();
+		}, () => !IsUpdatingPlugins);
 	}
 
 	[PropertyChanged(nameof(ProfileVm))]
@@ -179,6 +191,15 @@ public class PluginPageViewModel : IDisposable
 			return default;
 
 		Debug.WriteLine($"Selected Plugin: {value.Name}, {value}");
+		return default;
+	}
+
+	[PropertyChanged(nameof(IsUpdatingPlugins))]
+	[SuppressMessage("","IDE0051")]
+	private ValueTask IsUpdatingPluginsChangedAsync(bool value)
+	{
+		OpenPluginFolderCommand?.ChangeCanExecute();
+		UpdatePluginsCommand?.ChangeCanExecute();
 		return default;
 	}
 
