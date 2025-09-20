@@ -67,4 +67,15 @@ public partial class ProfileViewModel(Profile profile)
 		}
 		return default;
 	}
+
+	[PropertyChanged(nameof(PluginPacks))]
+	[SuppressMessage("","IDE0051")]
+	private ValueTask PluginPacksChangedAsync(ICollection<PluginPack> value)
+	{
+		if (!Equals(_profile.PluginPacks, value))
+		{
+			_profile.PluginPacks = value;
+		}
+		return default;
+	}
 }

@@ -6,6 +6,8 @@ public record PluginPack : ProfileEntityBase, IBackupable, IActivatable
 	public string Author { get; set; } = string.Empty;
 	public string InstalledPath { get; set; } = string.Empty;
 
+	public string FolderName { get; set; } = string.Empty;
+
 	public bool IsEnabled { get; set; } = true;
 	public string MovedPath { get; set; } = string.Empty;
 	public bool IsIgnoredBackup { get; set; }

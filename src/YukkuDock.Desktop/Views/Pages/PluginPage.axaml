@@ -9,6 +9,7 @@
   xmlns:vm="using:YukkuDock.Desktop.ViewModels"
   d:DesignHeight="450"
   d:DesignWidth="800"
+  epoxy:Anchor.Pile="{Binding PagePile}"
   x:DataType="vm:PluginPageViewModel"
   mc:Ignorable="d"
   >
@@ -29,10 +30,17 @@
         Theme="{StaticResource SubtitleTextBlockStyle}"
         />
 
-      <StackPanel Grid.Column="1"
+      <StackPanel
+        Grid.Column="1"
+        HorizontalAlignment="Right"
         Orientation="Horizontal"
-        HorizontalAlignment="Right">
-        <Button Margin="5,2,0,2" HorizontalAlignment="Right">
+        >
+        <Button
+          Margin="5,2,0,2"
+          HorizontalAlignment="Right"
+          Command="{Binding OpenPluginFolderCommand}"
+          IsEnabled="{Binding CanOpenPluginFolder}"
+          >
           <StackPanel Orientation="Horizontal">
             <ui:SymbolIcon
               Margin="0,0,5,0"
@@ -43,14 +51,18 @@
           </StackPanel>
         </Button>
 
-        <Button Margin="5,2,0,2" HorizontalAlignment="Right">
+        <Button
+          Margin="5,2,0,2"
+          HorizontalAlignment="Right"
+          Command="{Binding UpdatePluginsCommand}"
+          IsEnabled="{Binding CanOpenPluginFolder}"
+          >
           <StackPanel Orientation="Horizontal">
             <ui:SymbolIcon
               Margin="0,0,5,0"
               FontSize="16"
-              Symbol="Add"
+              Symbol="Refresh"
               />
-            <TextBlock Text="追加" />
           </StackPanel>
         </Button>
       </StackPanel>
@@ -112,7 +124,22 @@
         <Style Selector="TreeDataGrid TreeDataGridRow:nth-child(2n)">
           <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorSecondaryBrush}" />
         </Style>
+
+        <Style Selector="TreeDataGridRow">
+          <Setter Property="MinHeight" Value="24" />
+          <Setter Property="Padding" Value="2,0" />
+        </Style>
+
+        <Style Selector="TreeDataGridCell">
+          <Setter Property="Padding" Value="4,0" />
+        </Style>
+
+        <Style Selector="TreeDataGridCell TextBlock, TreeDataGridCell ToggleSwitch">
+          <Setter Property="Margin" Value="0" />
+        </Style>
+
       </TreeDataGrid.Styles>
+
     </TreeDataGrid>
 
   </DockPanel>

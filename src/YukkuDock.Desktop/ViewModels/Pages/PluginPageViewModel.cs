@@ -1,12 +1,18 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using System.Runtime.Loader;
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Platform.Storage;
 using Epoxy;
+using YukkuDock.Core;
 using YukkuDock.Core.Models;
+using YukkuDock.Desktop.Extensions;
+using YukkuDock.Desktop.Views;
 
 namespace YukkuDock.Desktop.ViewModels;
 
@@ -18,21 +24,32 @@ public class PluginPageViewModel : IDisposable
 
 	public ProfileViewModel? ProfileVm { get; set; }
 
+	public Pile<PluginPage> PagePile { get; } = Pile.Factory.Create<PluginPage>();
+
 	public FlatTreeDataGridSource<PluginPackViewModel>? PluginsSource { get; private set; }
 
 	public PluginPackViewModel? SelectedPlugin { get; set; }
+
+	public Command? OpenPluginFolderCommand { get; set; }
+	public Command? UpdatePluginsCommand { get; set; }
+	public bool CanOpenPluginFolder { get; set; }
 
 	ObservableCollection<PluginPackViewModel>? _plugins { get; set; } = [];
 
 	static readonly FuncDataTemplate<PluginPackViewModel> IsEnabledTemplate = new(
 		static (_, __) =>
-			new ToggleSwitch
+			new Viewbox()
 			{
-				[!ToggleSwitch.IsCheckedProperty] = new Binding(
-					nameof(PluginPackViewModel.IsEnabled)
-				),
-				OffContent = "",
-				OnContent = "",
+				Width = 64,
+				Height = 16,
+				Child = new ToggleSwitch
+				{
+					[!ToggleSwitch.IsCheckedProperty] = new Binding(
+						nameof(PluginPackViewModel.IsEnabled)
+					),
+					OffContent = "",
+					OnContent = "",
+				},
 			}
 	);
 	static readonly FuncDataTemplate<PluginPackViewModel> IsIgnoredBackupTemplate = new(
@@ -54,7 +71,19 @@ public class PluginPageViewModel : IDisposable
 		if (ProfileVm is null)
 			return;
 
-		var list = ProfileVm.PluginPacks.Select(p => new PluginPackViewModel(p));
+		LoadPluginData();
+
+		PluginsSource.RowSelection!.SelectionChanged += (s, e) =>
+			SelectedPlugin = e.SelectedItems[0];
+	}
+
+	[MemberNotNull(nameof(PluginsSource))]
+	[SuppressMessage("Usage", "SMA0040:Missing Using Statement", Justification = "<保留中>")]
+
+	private void LoadPluginData()
+	{
+		var list = ProfileVm?.PluginPacks.Select(p => new PluginPackViewModel(p))
+			?? [];
 		_plugins = new ObservableCollection<PluginPackViewModel>(list);
 
 		PluginsSource = new FlatTreeDataGridSource<PluginPackViewModel>(_plugins)
@@ -62,16 +91,68 @@ public class PluginPageViewModel : IDisposable
 			Columns =
 			{
 				new TemplateColumn<PluginPackViewModel>("有効", IsEnabledTemplate),
-				new TextColumn<PluginPackViewModel, string>("プラグイン名", x => x.Name),
 				new TextColumn<PluginPackViewModel, string>("フォルダ", x => x.FolderName),
+				new TextColumn<PluginPackViewModel, string>("プラグイン名", x => x.Name),
 				new TextColumn<PluginPackViewModel, string>("バージョン", x => x.Version),
 				new TextColumn<PluginPackViewModel, string>("作者", x => x.Author),
-				new TemplateColumn<PluginPackViewModel>("バッグアップ可", IsIgnoredBackupTemplate),
+				//new TemplateColumn<PluginPackViewModel>("バックアップ可", IsIgnoredBackupTemplate),
 			},
 		};
+	}
 
-		PluginsSource.RowSelection!.SelectionChanged += (s, e) =>
-			SelectedPlugin = e.SelectedItems[0];
+
+	void SetCommands()
+	{
+		OpenPluginFolderCommand = Command.Factory.CreateEasy(async () =>
+		{
+			if (ProfileVm is null)
+			{
+				return;
+			}
+
+			if (!PathManager.TryGetPluginFolder(ProfileVm.AppPath, out var folder))
+			{
+				return;
+			}
+
+			await PagePile
+				.RentAsync(
+					async (page) =>
+					{
+						var topLevel = TopLevel.GetTopLevel(page);
+						if (topLevel is null)
+							return;
+
+						await topLevel
+							.Launcher.LaunchDirectoryInfoAsync(folder)
+							.ConfigureAwait(true);
+					}
+				)
+				.ConfigureAwait(true);
+		});
+
+		UpdatePluginsCommand = Command.Factory.CreateEasy(async () =>
+		{
+			if (ProfileVm is null)
+			{
+				return;
+			}
+
+			if (!PathManager.TryGetPluginFolder(ProfileVm.AppPath, out var folder))
+			{
+				return;
+			}
+
+			var sw = Stopwatch.StartNew();
+
+			ProfileVm.PluginPacks = await PluginManager
+				.LoadPluginsFromDirectoryAsync(ProfileVm.AppPath, folder)
+				.ConfigureAwait(true);
+			LoadPluginData();
+
+			sw.Stop();
+			Debug.WriteLine($"Plugin update completed in {sw.ElapsedMilliseconds} ms");
+		});
 	}
 
 	[PropertyChanged(nameof(ProfileVm))]
@@ -82,6 +163,9 @@ public class PluginPageViewModel : IDisposable
 		{
 			ProfileVm = value;
 			InitializePlugins();
+			SetCommands();
+
+			CanOpenPluginFolder = PathManager.TryGetPluginFolder(ProfileVm.AppPath, out _);
 		}
 
 		return default;

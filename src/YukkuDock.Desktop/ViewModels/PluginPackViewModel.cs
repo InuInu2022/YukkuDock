@@ -18,7 +18,7 @@ public class PluginPackViewModel(PluginPack pluginPack)
 
 	public string InstalledPath { get; set; } = pluginPack.InstalledPath;
 
-	public string FolderName { get; } = "ABC";
+	public string FolderName { get; set; } = pluginPack.FolderName;
 	public string MovedPath { get; set; } = pluginPack.MovedPath;
 	public bool IsIgnoredBackup { get; set; } = pluginPack.IsIgnoredBackup;
 	public string BackupPath { get; set; } = pluginPack.BackupPath;
@@ -59,6 +59,14 @@ public class PluginPackViewModel(PluginPack pluginPack)
 	private ValueTask InstalledPathChangedAsync(string value)
 	{
 		PluginPack.InstalledPath = value;
+		return default;
+	}
+
+	[PropertyChanged(nameof(FolderName))]
+	[SuppressMessage("","IDE0051")]
+	private ValueTask FolderNameChangedAsync(string value)
+	{
+		PluginPack.FolderName = value;
 		return default;
 	}
 
