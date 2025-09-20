@@ -1,15 +1,18 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
-using System.Runtime.Loader;
-using System.Threading.Tasks;
+
+
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Platform.Storage;
+
+
 using Epoxy;
+
+
 using YukkuDock.Core;
 using YukkuDock.Core.Models;
 using YukkuDock.Desktop.Extensions;
@@ -39,6 +42,9 @@ public class PluginPageViewModel
 	public int LoadPluginsPerFolder { get; set; } = 10;
 
 	ObservableCollection<PluginPackViewModel>? _plugins { get; set; } = [];
+
+	// プロファイルごとにキャッシュ
+	static readonly Dictionary<string, ICollection<PluginPack>> ProfilePluginCache = [];
 
 	static readonly FuncDataTemplate<PluginPackViewModel> IsEnabledTemplate = new(
 		static (_, __) =>
@@ -79,15 +85,22 @@ public class PluginPageViewModel
 		);
 	}
 
+
+
 	public async ValueTask InitializePluginsAsync()
 	{
 		if (ProfileVm is null)
 			return;
 
-		await UpdatePluginsAsync().ConfigureAwait(true);
+		// AppPathでキャッシュ判定
+		if (ProfilePluginCache.TryGetValue(ProfileVm.AppPath, out var cached))
+		{
+			ProfileVm.PluginPacks = cached;
+			LoadPluginData();
+			return;
+		}
 
-		PluginsSource!.RowSelection!.SelectionChanged += (s, e) =>
-			SelectedPlugin = e.SelectedItems[0];
+		await UpdatePluginsAsync().ConfigureAwait(true);
 	}
 
 	[MemberNotNull(nameof(PluginsSource))]
@@ -150,6 +163,30 @@ public class PluginPageViewModel
 		);
 	}
 
+	[PropertyChanged(nameof(ProfileVm))]
+	[SuppressMessage("", "IDE0051")]
+	async ValueTask ProfileVmChangedAsync(ProfileViewModel? value)
+	{
+		if (value is null)
+			return;
+
+		ProfileVm = value;
+		SetCommands();
+
+		CanOpenPluginFolder = PathManager.TryGetPluginFolder(ProfileVm.AppPath, out _);
+
+		// AppPathでキャッシュ判定
+		if (ProfilePluginCache.TryGetValue(ProfileVm.AppPath, out var cached))
+		{
+			ProfileVm.PluginPacks = cached;
+			LoadPluginData();
+		}
+		else
+		{
+			await UpdatePluginsAsync().ConfigureAwait(true);
+		}
+	}
+
 	private async ValueTask UpdatePluginsAsync()
 	{
 		IsUpdatingPlugins = true;
@@ -174,58 +211,29 @@ public class PluginPageViewModel
 
 		try
 		{
-			// プラグインロードはバックグラウンド
 			var pluginPacks = await PluginManager
 				.LoadPluginsFromDirectoryAsync(appPath, folder, LoadPluginsPerFolder)
 				.ConfigureAwait(false);
 
-			// UI更新だけUIThreadでラップ
-			await UIThread
-				.InvokeAsync(() =>
-				{
-					ProfileVm.PluginPacks = pluginPacks;
-					LoadPluginData();
-					IsUpdatingPlugins = false;
-					UpdatePluginsCommand?.ChangeCanExecute();
-					return default;
-				})
-				.ConfigureAwait(true);
-		}
-		catch (ReflectionTypeLoadException ex)
-		{
-			// 例外の詳細をログ出力
-			Debug.WriteLine($"ReflectionTypeLoadException: {ex.Message}");
-			foreach (var loaderEx in ex.LoaderExceptions)
+			await UIThread.InvokeAsync(() =>
 			{
-				Debug.WriteLine($"LoaderException: {loaderEx?.Message}");
-			}
-			IsUpdatingPlugins = false;
-			UpdatePluginsCommand?.ChangeCanExecute();
+				ProfileVm.PluginPacks = pluginPacks;
+				ProfilePluginCache[ProfileVm.AppPath] = pluginPacks;
+				LoadPluginData();
+				IsUpdatingPlugins = false;
+				UpdatePluginsCommand?.ChangeCanExecute();
+				return default;
+			}).ConfigureAwait(true);
 		}
 		catch (Exception ex)
 		{
-			Debug.WriteLine($"Plugin update failed: {ex}");
 			IsUpdatingPlugins = false;
 			UpdatePluginsCommand?.ChangeCanExecute();
+			Debug.WriteLine($"Plugin update failed: {ex}");
 		}
 
 		sw.Stop();
 		Debug.WriteLine($"Plugin update completed in {sw.ElapsedMilliseconds} ms");
-	}
-
-	[PropertyChanged(nameof(ProfileVm))]
-	[SuppressMessage("", "IDE0051")]
-	ValueTask ProfileVmChangedAsync(ProfileViewModel? value)
-	{
-		if (value is null)
-			return default;
-
-		ProfileVm = value;
-		SetCommands();
-
-		CanOpenPluginFolder = PathManager.TryGetPluginFolder(ProfileVm.AppPath, out _);
-
-		return default;
 	}
 
 	[PropertyChanged(nameof(SelectedPlugin))]
