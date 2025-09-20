@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Threading.Tasks;
+
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Templates;
@@ -68,14 +70,14 @@ public class PluginPageViewModel : IDisposable
 
 	public PluginPageViewModel() { }
 
-	private void InitializePlugins()
+	private async Task InitializePluginsAsync()
 	{
 		if (ProfileVm is null)
 			return;
 
-		LoadPluginData();
+		await UpdatePluginsAsync().ConfigureAwait(false);
 
-		PluginsSource.RowSelection!.SelectionChanged += (s, e) =>
+		PluginsSource!.RowSelection!.SelectionChanged += (s, e) =>
 			SelectedPlugin = e.SelectedItems[0];
 	}
 
@@ -135,52 +137,59 @@ public class PluginPageViewModel : IDisposable
 
 		UpdatePluginsCommand = Command.Factory.Create(async () =>
 		{
-			IsUpdatingPlugins = true;
-			UpdatePluginsCommand?.ChangeCanExecute();
-
-			if (ProfileVm is null)
-			{
-				IsUpdatingPlugins = false;
-				UpdatePluginsCommand?.ChangeCanExecute();
-				return;
-			}
-
-			if (!PathManager.TryGetPluginFolder(ProfileVm.AppPath, out var folder))
-			{
-				IsUpdatingPlugins = false;
-				UpdatePluginsCommand?.ChangeCanExecute();
-				return;
-			}
-
-
-			var sw = Stopwatch.StartNew();
-
-			ProfileVm.PluginPacks = await PluginManager
-				.LoadPluginsFromDirectoryAsync(ProfileVm.AppPath, folder)
+			await UpdatePluginsAsync()
 				.ConfigureAwait(true);
-			LoadPluginData();
-
-			sw.Stop();
-			Debug.WriteLine($"Plugin update completed in {sw.ElapsedMilliseconds} ms");
-			IsUpdatingPlugins = false;
-			UpdatePluginsCommand?.ChangeCanExecute();
 		}, () => !IsUpdatingPlugins);
 	}
 
-	[PropertyChanged(nameof(ProfileVm))]
-	[SuppressMessage("", "IDE0051")]
-	private ValueTask ProfileVmChangedAsync(ProfileViewModel? value)
+	private async ValueTask UpdatePluginsAsync()
 	{
-		if (value is not null)
-		{
-			ProfileVm = value;
-			InitializePlugins();
-			SetCommands();
+		IsUpdatingPlugins = true;
+		UpdatePluginsCommand?.ChangeCanExecute();
 
-			CanOpenPluginFolder = PathManager.TryGetPluginFolder(ProfileVm.AppPath, out _);
+		if (ProfileVm is null)
+		{
+			IsUpdatingPlugins = false;
+			UpdatePluginsCommand?.ChangeCanExecute();
+			return;
 		}
 
-		return default;
+		if (!PathManager.TryGetPluginFolder(ProfileVm.AppPath, out var folder))
+		{
+			IsUpdatingPlugins = false;
+			UpdatePluginsCommand?.ChangeCanExecute();
+			return;
+		}
+
+
+		var sw = Stopwatch.StartNew();
+
+		ProfileVm.PluginPacks = await PluginManager
+			.LoadPluginsFromDirectoryAsync(ProfileVm.AppPath, folder)
+			.ConfigureAwait(true);
+		LoadPluginData();
+
+		sw.Stop();
+		Debug.WriteLine($"Plugin update completed in {sw.ElapsedMilliseconds} ms");
+		IsUpdatingPlugins = false;
+		UpdatePluginsCommand?.ChangeCanExecute();
+	}
+
+
+	[PropertyChanged(nameof(ProfileVm))]
+	[SuppressMessage("", "IDE0051")]
+	private async ValueTask ProfileVmChangedAsync(ProfileViewModel? value)
+	{
+		if (value is null)
+		{
+			return;
+		}
+
+		ProfileVm = value;
+		await InitializePluginsAsync().ConfigureAwait(true);
+		SetCommands();
+
+		CanOpenPluginFolder = PathManager.TryGetPluginFolder(ProfileVm.AppPath, out _);
 	}
 
 	[PropertyChanged(nameof(SelectedPlugin))]
