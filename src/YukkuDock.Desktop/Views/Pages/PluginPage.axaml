@@ -9,8 +9,8 @@
   xmlns:vm="using:YukkuDock.Desktop.ViewModels"
   d:DesignHeight="450"
   d:DesignWidth="800"
-  epoxy:Fountain.Well="{Binding PageWell}"
   epoxy:Anchor.Pile="{Binding PagePile}"
+  epoxy:Fountain.Well="{Binding PageWell}"
   x:DataType="vm:PluginPageViewModel"
   mc:Ignorable="d"
   >
@@ -36,21 +36,7 @@
         HorizontalAlignment="Right"
         Orientation="Horizontal"
         >
-        <Button
-          Margin="5,2,0,2"
-          HorizontalAlignment="Right"
-          Command="{Binding OpenPluginFolderCommand}"
-          IsEnabled="{Binding CanOpenPluginFolder}"
-          >
-          <StackPanel Orientation="Horizontal">
-            <ui:SymbolIcon
-              Margin="0,0,5,0"
-              FontSize="16"
-              Symbol="OpenFolder"
-              />
-            <TextBlock Text="プラグインフォルダ開く" />
-          </StackPanel>
-        </Button>
+
 
         <Button
           Margin="5,2,0,2"
@@ -58,6 +44,7 @@
           Command="{Binding UpdatePluginsCommand}"
           IsEnabled="{Binding CanOpenPluginFolder}"
           >
+          <ToolTip.Tip>再読み込み</ToolTip.Tip>
           <StackPanel Orientation="Horizontal">
             <ui:SymbolIcon
               Margin="0,0,5,0"
@@ -66,76 +53,86 @@
               />
           </StackPanel>
         </Button>
+
+        <Button
+          Margin="5,2,0,2"
+          HorizontalAlignment="Right"
+          Command="{Binding OpenPluginFolderCommand}"
+          IsEnabled="{Binding CanOpenPluginFolder}"
+          >
+          <ToolTip.Tip>プラグインフォルダ開く</ToolTip.Tip>
+          <StackPanel Orientation="Horizontal">
+            <ui:SymbolIcon
+              Margin="0,0,5,0"
+              FontSize="16"
+              Symbol="OpenFolder"
+              />
+          </StackPanel>
+        </Button>
+
+        <SplitButton Margin="5,2,0,2">
+          <ToolTip.Tip>バックアップ</ToolTip.Tip>
+          <SplitButton.Flyout>
+            <ui:FAMenuFlyout>
+              <!--  use the GroupName property to group radio items together  -->
+              <ui:RadioMenuFlyoutItem
+                GroupName="BackupGroup"
+                IsChecked="True"
+                Text="選択中のプラグイン"
+                />
+              <ui:RadioMenuFlyoutItem
+                GroupName="BackupGroup"
+                IsChecked="True"
+                Text="全プラグイン"
+                />
+            </ui:FAMenuFlyout>
+          </SplitButton.Flyout>
+          <StackPanel Orientation="Horizontal">
+            <ui:SymbolIcon
+              Margin="0,0,5,0"
+              FontSize="16"
+              Symbol="MoveToFolder"
+              />
+          </StackPanel>
+        </SplitButton>
+
+        <Button Margin="5,2,0,2">
+          <ToolTip.Tip>削除</ToolTip.Tip>
+          <StackPanel Orientation="Horizontal">
+            <ui:SymbolIcon
+              Margin="0,0,5,0"
+              FontSize="16"
+              Symbol="Delete"
+              />
+          </StackPanel>
+        </Button>
       </StackPanel>
 
 
     </Grid>
-    <StackPanel
-      MinWidth="150"
-      Background="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"
-      DockPanel.Dock="Right"
-      >
-      <StackPanel.Styles>
-        <Style Selector="StackPanel &gt; :is(Button)">
-          <Setter Property="Margin" Value="5, 2" />
-          <Setter Property="HorizontalAlignment" Value="Stretch" />
-        </Style>
-      </StackPanel.Styles>
-      <Button Content="Add Plugin" />
-      <Button Content="Add Plugin" />
-      <SplitButton>
-        <SplitButton.Flyout>
-          <ui:FAMenuFlyout>
-            <!--  use the GroupName property to group radio items together  -->
-            <ui:RadioMenuFlyoutItem
-              GroupName="BackupGroup"
-              IsChecked="True"
-              Text="選択中のプラグイン"
-              />
-            <ui:RadioMenuFlyoutItem
-              GroupName="BackupGroup"
-              IsChecked="True"
-              Text="全プラグイン"
-              />
-          </ui:FAMenuFlyout>
-        </SplitButton.Flyout>
-        <StackPanel Orientation="Horizontal">
-          <ui:SymbolIcon
-            Margin="0,0,5,0"
-            FontSize="16"
-            Symbol="Delete"
-            />
-          <TextBlock Text="バックアップ" />
-        </StackPanel>
-      </SplitButton>
-      <Button>
-        <StackPanel Orientation="Horizontal">
-          <ui:SymbolIcon
-            Margin="0,0,5,0"
-            FontSize="16"
-            Symbol="Delete"
-            />
-          <TextBlock Text="削除" />
-        </StackPanel>
-      </Button>
-    </StackPanel>
 
-    <TreeDataGrid Source="{Binding PluginsSource}"
-      IsEnabled="{Binding !IsUpdatingPlugins}">
+
+
+    <TreeDataGrid
+      epoxy:Anchor.Pile="{Binding PluginListPile}"
+      IsEnabled="{Binding !IsUpdatingPlugins}"
+      Source="{Binding PluginsSource}"
+      >
       <AdornerLayer.Adorner>
         <Grid>
           <Border
-            Background="Black"
-            Opacity="0.5"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
+            Background="Black"
             IsVisible="{Binding IsUpdatingPlugins}"
+            Opacity="0.5"
             >
             <ui:ProgressRing
-              Width="80" Height="80"
+              Width="80"
+              Height="80"
               IsIndeterminate="True"
               ZIndex="10"
-            />
+              />
           </Border>
 
         </Grid>

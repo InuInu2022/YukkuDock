@@ -1,18 +1,12 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-
-
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Platform.Storage;
-
-
 using Epoxy;
-
-
 using YukkuDock.Core;
 using YukkuDock.Core.Models;
 using YukkuDock.Desktop.Extensions;
@@ -28,6 +22,8 @@ public class PluginPageViewModel
 
 	public Pile<PluginPage> PagePile { get; } = Pile.Factory.Create<PluginPage>();
 	public Well<PluginPage> PageWell { get; } = Well.Factory.Create<PluginPage>();
+
+	public Pile<TreeDataGrid> PluginListPile { get; } = Pile.Factory.Create<TreeDataGrid>();
 
 	public FlatTreeDataGridSource<PluginPackViewModel>? PluginsSource { get; private set; }
 
@@ -76,17 +72,35 @@ public class PluginPageViewModel
 
 	public PluginPageViewModel()
 	{
-		PageWell.Add(
-			"Loaded",
-			async () =>
+		SetCommands();
+
+		PageWell.Add("Loaded", async () =>
+		{
+			if (ProfileVm is null)
+				return;
+
+			IsUpdatingPlugins = true;
+			LoadPluginData([]);
+
+			// キャッシュ判定
+			if (ProfilePluginCache.TryGetValue(ProfileVm.AppPath, out var cached))
 			{
-				await Task.Delay(500).ConfigureAwait(true);
-				await InitializePluginsAsync().ConfigureAwait(true);
+				ProfileVm.PluginPacks = cached;
+				await UIThread.InvokeAsync(() =>
+				{
+					LoadPluginData(cached);
+					IsUpdatingPlugins = false;
+					return default;
+				}).ConfigureAwait(true);
+				return;
 			}
-		);
+
+			// 逐次読込
+			await UpdatePluginsProgressivelyAsync().ConfigureAwait(true);
+
+			IsUpdatingPlugins = false;
+		});
 	}
-
-
 
 	public async ValueTask InitializePluginsAsync()
 	{
@@ -106,9 +120,10 @@ public class PluginPageViewModel
 
 	[MemberNotNull(nameof(PluginsSource))]
 	[SuppressMessage("Usage", "SMA0040:Missing Using Statement", Justification = "<保留中>")]
-	private void LoadPluginData()
+	void LoadPluginData(IEnumerable<PluginPack>? pluginPacks = null)
 	{
-		var list = ProfileVm?.PluginPacks.Select(p => new PluginPackViewModel(p)) ?? [];
+		var source = pluginPacks ?? ProfileVm?.PluginPacks;
+		var list = source?.Select(p => new PluginPackViewModel(p)) ?? [];
 		_plugins = new ObservableCollection<PluginPackViewModel>(list);
 
 		PluginsSource = new FlatTreeDataGridSource<PluginPackViewModel>(_plugins)
@@ -120,9 +135,136 @@ public class PluginPageViewModel
 				new TextColumn<PluginPackViewModel, string>("プラグイン名", x => x.Name),
 				new TextColumn<PluginPackViewModel, string>("バージョン", x => x.Version),
 				new TextColumn<PluginPackViewModel, string>("作者", x => x.Author),
-				//new TemplateColumn<PluginPackViewModel>("バックアップ可", IsIgnoredBackupTemplate),
+				new TextColumn<PluginPackViewModel, string>("最終更新日時", x => x.LastWriteTimeUtc),
 			},
 		};
+	}
+
+	/// <summary>
+	/// プラグインを段階的に更新（基本情報→詳細情報）
+	/// </summary>
+	[SuppressMessage(
+		"Usage",
+		"VSTHRD101:Avoid unsupported async delegates",
+		Justification = "<保留中>"
+	)]
+	[SuppressMessage(
+		"Usage",
+		"MA0147:Avoid async void method for delegate",
+		Justification = "<保留中>"
+	)]
+	[SuppressMessage(
+		"Concurrency",
+		"PH_S034:Async Lambda Inferred to Async Void",
+		Justification = "<保留中>"
+	)]
+	private async ValueTask UpdatePluginsProgressivelyAsync()
+	{
+		IsUpdatingPlugins = true;
+		UpdatePluginsCommand?.ChangeCanExecute();
+
+		if (ProfileVm is null)
+		{
+			IsUpdatingPlugins = false;
+			UpdatePluginsCommand?.ChangeCanExecute();
+			return;
+		}
+
+		var appPath = ProfileVm.AppPath;
+		if (!PathManager.TryGetPluginFolder(appPath, out var folder))
+		{
+			IsUpdatingPlugins = false;
+			UpdatePluginsCommand?.ChangeCanExecute();
+			return;
+		}
+
+		var sw = Stopwatch.StartNew();
+
+		try
+		{
+			// UI用のコレクションをクリア
+			await UIThread
+				.InvokeAsync(() =>
+				{
+					_plugins?.Clear();
+					ProfileVm.PluginPacks.Clear();
+					return default;
+				})
+				.ConfigureAwait(false);
+
+			// 段階的ロード用のProgress
+			var progress = new Progress<PluginPack>(async plugin =>
+			{
+				try
+				{
+					// UIスレッドでコレクション更新
+					await UIThread
+						.InvokeAsync(() =>
+						{
+							// 既存アイテムを検索
+							var existingVm = _plugins?.FirstOrDefault(p =>
+								string.Equals(
+									p.InstalledPath,
+									plugin.InstalledPath,
+									StringComparison.Ordinal
+								)
+							);
+
+							if (existingVm is not null)
+							{
+								// 詳細情報が来たらプロパティ更新
+								existingVm.Name = plugin.Name;
+								existingVm.Author = plugin.Author;
+								existingVm.Version = plugin.Version?.ToString() ?? string.Empty;
+								// 必要なら他のプロパティも
+							}
+							else
+							{
+								// 新規追加
+								_plugins?.Add(new PluginPackViewModel(plugin));
+							}
+
+							return ValueTask.CompletedTask;
+						})
+						.ConfigureAwait(true);
+				}
+				catch (System.Exception ex)
+				{
+					// エラーハンドリング
+					Debug.WriteLine(ex.Message);
+				}
+			});
+
+			// 段階的ロード実行
+			var pluginPacks = await PluginManager
+				.LoadPluginsProgressivelyAsync(appPath, folder, LoadPluginsPerFolder, progress)
+				.ConfigureAwait(false);
+
+			// キャッシュ・ProfileVmへ反映
+			await UIThread.InvokeAsync(() =>
+			{
+				ProfileVm.PluginPacks = pluginPacks;
+				ProfilePluginCache[ProfileVm.AppPath] = pluginPacks;
+				IsUpdatingPlugins = false;
+				UpdatePluginsCommand?.ChangeCanExecute();
+				return default;
+			}).ConfigureAwait(false);
+		}
+		catch (Exception ex)
+		{
+			await UIThread
+				.InvokeAsync(() =>
+				{
+					IsUpdatingPlugins = false;
+					UpdatePluginsCommand?.ChangeCanExecute();
+					return default;
+				})
+				.ConfigureAwait(false);
+			Debug.WriteLine($"Plugin update failed: {ex}");
+		}
+
+		sw.Stop();
+		Debug.WriteLine($"Progressive plugin update completed in {sw.ElapsedMilliseconds} ms");
 	}
 
 	void SetCommands()
@@ -130,14 +272,10 @@ public class PluginPageViewModel
 		OpenPluginFolderCommand = Command.Factory.CreateEasy(async () =>
 		{
 			if (ProfileVm is null)
-			{
 				return;
-			}
 
 			if (!PathManager.TryGetPluginFolder(ProfileVm.AppPath, out var folder))
-			{
 				return;
-			}
 
 			await PagePile
 				.RentAsync(
@@ -155,10 +293,11 @@ public class PluginPageViewModel
 				.ConfigureAwait(true);
 		});
 
+		// 段階的更新を使用
 		UpdatePluginsCommand = Command.Factory.Create(
 			async () =>
 			{
-				await UpdatePluginsAsync().ConfigureAwait(true);
+				await UpdatePluginsProgressivelyAsync().ConfigureAwait(true);
 			},
 			() => !IsUpdatingPlugins
 		);
@@ -166,26 +305,17 @@ public class PluginPageViewModel
 
 	[PropertyChanged(nameof(ProfileVm))]
 	[SuppressMessage("", "IDE0051")]
-	async ValueTask ProfileVmChangedAsync(ProfileViewModel? value)
+	ValueTask ProfileVmChangedAsync(ProfileViewModel? value)
 	{
 		if (value is null)
-			return;
+			return default;
 
 		ProfileVm = value;
-		SetCommands();
+
 
 		CanOpenPluginFolder = PathManager.TryGetPluginFolder(ProfileVm.AppPath, out _);
 
-		// AppPathでキャッシュ判定
-		if (ProfilePluginCache.TryGetValue(ProfileVm.AppPath, out var cached))
-		{
-			ProfileVm.PluginPacks = cached;
-			LoadPluginData();
-		}
-		else
-		{
-			await UpdatePluginsAsync().ConfigureAwait(true);
-		}
+		return default;
 	}
 
 	private async ValueTask UpdatePluginsAsync()
@@ -216,15 +346,17 @@ public class PluginPageViewModel
 				.LoadPluginsFromDirectoryAsync(appPath, folder, LoadPluginsPerFolder)
 				.ConfigureAwait(false);
 
-			await UIThread.InvokeAsync(() =>
-			{
-				ProfileVm.PluginPacks = pluginPacks;
-				ProfilePluginCache[ProfileVm.AppPath] = pluginPacks;
-				LoadPluginData();
-				IsUpdatingPlugins = false;
-				UpdatePluginsCommand?.ChangeCanExecute();
-				return default;
-			}).ConfigureAwait(true);
+			await UIThread
+				.InvokeAsync(() =>
+				{
+					ProfileVm.PluginPacks = pluginPacks;
+					ProfilePluginCache[ProfileVm.AppPath] = pluginPacks;
+					LoadPluginData();
+					IsUpdatingPlugins = false;
+					UpdatePluginsCommand?.ChangeCanExecute();
+					return default;
+				})
+				.ConfigureAwait(true);
 		}
 		catch (Exception ex)
 		{
@@ -255,5 +387,22 @@ public class PluginPageViewModel
 		OpenPluginFolderCommand?.ChangeCanExecute();
 		UpdatePluginsCommand?.ChangeCanExecute();
 		return default;
+	}
+
+	[PropertyChanged(nameof(PluginsSource))]
+	[SuppressMessage("","IDE0051")]
+	private async ValueTask PluginsSourceChangedAsync(
+		FlatTreeDataGridSource<PluginPackViewModel>? value
+	)
+	{
+		if (value is null)
+			return;
+
+		await PluginListPile.RentAsync((list) =>
+		{
+			list.InvalidateVisual();
+			list.UpdateLayout();
+			return ValueTask.CompletedTask;
+		}).ConfigureAwait(true);
 	}
 }
