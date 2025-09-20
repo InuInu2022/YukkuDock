@@ -75,7 +75,7 @@ public class PluginPageViewModel : IDisposable
 		if (ProfileVm is null)
 			return;
 
-		await UpdatePluginsAsync().ConfigureAwait(false);
+		await UpdatePluginsAsync().ConfigureAwait(true);
 
 		PluginsSource!.RowSelection!.SelectionChanged += (s, e) =>
 			SelectedPlugin = e.SelectedItems[0];
@@ -144,35 +144,65 @@ public class PluginPageViewModel : IDisposable
 
 	private async ValueTask UpdatePluginsAsync()
 	{
-		IsUpdatingPlugins = true;
-		UpdatePluginsCommand?.ChangeCanExecute();
-
-		if (ProfileVm is null)
+		await UIThread.InvokeAsync(() =>
 		{
+			IsUpdatingPlugins = true;
+			UpdatePluginsCommand?.ChangeCanExecute();
+			return default;
+		}).ConfigureAwait(true);
+
+		ProfileViewModel? profileVm = null;
+		await UIThread.InvokeAsync(() =>
+		{
+			profileVm = ProfileVm;
 			IsUpdatingPlugins = false;
 			UpdatePluginsCommand?.ChangeCanExecute();
-			return;
-		}
+			return default;
+		}).ConfigureAwait(true);
 
-		if (!PathManager.TryGetPluginFolder(ProfileVm.AppPath, out var folder))
+		bool hasFolder = false;
+		string appPath = "";
+		DirectoryInfo? folder = null;
+		await UIThread.InvokeAsync(() =>
 		{
-			IsUpdatingPlugins = false;
-			UpdatePluginsCommand?.ChangeCanExecute();
+			appPath = profileVm!.AppPath;
+			hasFolder = PathManager.TryGetPluginFolder(appPath, out folder);
+			return default;
+		}).ConfigureAwait(true);
+
+		if (!hasFolder || folder is null)
+		{
+			await UIThread.InvokeAsync(() =>
+			{
+				IsUpdatingPlugins = false;
+				UpdatePluginsCommand?.ChangeCanExecute();
+				return ValueTask.CompletedTask;
+			}).ConfigureAwait(true);
 			return;
 		}
-
 
 		var sw = Stopwatch.StartNew();
 
-		ProfileVm.PluginPacks = await PluginManager
-			.LoadPluginsFromDirectoryAsync(ProfileVm.AppPath, folder)
-			.ConfigureAwait(true);
-		LoadPluginData();
+		var pluginPacks = await PluginManager
+			.LoadPluginsFromDirectoryAsync(appPath, folder)
+			.ConfigureAwait(false);
+
+		await UIThread.InvokeAsync(() =>
+		{
+			profileVm!.PluginPacks = pluginPacks;
+			LoadPluginData();
+			return default;
+		}).ConfigureAwait(true);
 
 		sw.Stop();
 		Debug.WriteLine($"Plugin update completed in {sw.ElapsedMilliseconds} ms");
-		IsUpdatingPlugins = false;
-		UpdatePluginsCommand?.ChangeCanExecute();
+
+		await UIThread.InvokeAsync(() =>
+		{
+			IsUpdatingPlugins = false;
+			UpdatePluginsCommand?.ChangeCanExecute();
+			return default;
+		}).ConfigureAwait(true);
 	}
 
 
@@ -190,6 +220,7 @@ public class PluginPageViewModel : IDisposable
 		SetCommands();
 
 		CanOpenPluginFolder = PathManager.TryGetPluginFolder(ProfileVm.AppPath, out _);
+		IsUpdatingPlugins = false;
 	}
 
 	[PropertyChanged(nameof(SelectedPlugin))]

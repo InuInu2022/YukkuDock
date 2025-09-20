@@ -49,14 +49,18 @@ public static class PluginManager
 		var appDir = Path.GetDirectoryName(appPath)!;
 		var pluginPacks = new ConcurrentBag<PluginPack>();
 
-		// 共有AssemblyLoadContextの作成
 		using var pluginContext = new PluginLoadContext(appDir);
 
-		// Parallel.ForEachAsyncを使用
+		// 並列度をI/O主体ならコア数×2に増やす
+		var parallelOptions = new ParallelOptions
+		{
+			MaxDegreeOfParallelism = Environment.ProcessorCount * 2
+		};
+
 		await Parallel
 			.ForEachAsync(
 				pluginDirs,
-				new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
+				parallelOptions,
 				async (dir, ct) =>
 					await ProcessPluginDirectoryAsync(dir, pluginPacks, pluginContext, ct)
 						.ConfigureAwait(false)
@@ -152,10 +156,14 @@ public static class PluginManager
 	public static bool IsExcludedDll(string dllName)
 	{
 		dllName = dllName.ToLowerInvariant();
+		// DLL名がパターンに一致する場合は除外
 		return ExcludeDllPatterns.Contains(dllName, StringComparer.Ordinal)
 			|| ExcludeDllPatterns.Any(pattern =>
 				dllName.Contains(pattern, StringComparison.Ordinal)
-			);
+			)
+			// 拡張: "_resources"や"test"なども除外
+			|| dllName.Contains("_resources", StringComparison.Ordinal)
+			|| dllName.Contains("test", StringComparison.Ordinal);
 	}
 
 	[RequiresUnreferencedCode("Calls System.Reflection.Assembly.GetTypes()")]
