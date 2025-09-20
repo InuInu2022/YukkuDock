@@ -4,7 +4,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Threading.Tasks;
-
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Templates;
@@ -20,13 +19,12 @@ namespace YukkuDock.Desktop.ViewModels;
 
 [SuppressMessage("Correctness", "SS004:")]
 [ViewModel]
-public class PluginPageViewModel : IDisposable
+public class PluginPageViewModel
 {
-	private bool _disposedValue;
-
 	public ProfileViewModel? ProfileVm { get; set; }
 
 	public Pile<PluginPage> PagePile { get; } = Pile.Factory.Create<PluginPage>();
+	public Well<PluginPage> PageWell { get; } = Well.Factory.Create<PluginPage>();
 
 	public FlatTreeDataGridSource<PluginPackViewModel>? PluginsSource { get; private set; }
 
@@ -37,6 +35,8 @@ public class PluginPageViewModel : IDisposable
 
 	public bool CanOpenPluginFolder { get; set; }
 	public bool IsUpdatingPlugins { get; set; }
+
+	public int LoadPluginsPerFolder { get; set; } = 10;
 
 	ObservableCollection<PluginPackViewModel>? _plugins { get; set; } = [];
 
@@ -68,9 +68,18 @@ public class PluginPageViewModel : IDisposable
 			}
 	);
 
-	public PluginPageViewModel() { }
+	public PluginPageViewModel()
+	{
+		PageWell.Add(
+			"Loaded",
+			async () =>
+			{
+				await InitializePluginsAsync().ConfigureAwait(true);
+			}
+		);
+	}
 
-	private async Task InitializePluginsAsync()
+	public async ValueTask InitializePluginsAsync()
 	{
 		if (ProfileVm is null)
 			return;
@@ -83,11 +92,9 @@ public class PluginPageViewModel : IDisposable
 
 	[MemberNotNull(nameof(PluginsSource))]
 	[SuppressMessage("Usage", "SMA0040:Missing Using Statement", Justification = "<保留中>")]
-
 	private void LoadPluginData()
 	{
-		var list = ProfileVm?.PluginPacks.Select(p => new PluginPackViewModel(p))
-			?? [];
+		var list = ProfileVm?.PluginPacks.Select(p => new PluginPackViewModel(p)) ?? [];
 		_plugins = new ObservableCollection<PluginPackViewModel>(list);
 
 		PluginsSource = new FlatTreeDataGridSource<PluginPackViewModel>(_plugins)
@@ -103,7 +110,6 @@ public class PluginPageViewModel : IDisposable
 			},
 		};
 	}
-
 
 	void SetCommands()
 	{
@@ -135,11 +141,13 @@ public class PluginPageViewModel : IDisposable
 				.ConfigureAwait(true);
 		});
 
-		UpdatePluginsCommand = Command.Factory.Create(async () =>
-		{
-			await UpdatePluginsAsync()
-				.ConfigureAwait(true);
-		}, () => !IsUpdatingPlugins);
+		UpdatePluginsCommand = Command.Factory.Create(
+			async () =>
+			{
+				await UpdatePluginsAsync().ConfigureAwait(true);
+			},
+			() => !IsUpdatingPlugins
+		);
 	}
 
 	private async ValueTask UpdatePluginsAsync()
@@ -164,38 +172,60 @@ public class PluginPageViewModel : IDisposable
 
 		var sw = Stopwatch.StartNew();
 
-		// プラグインロードはバックグラウンド
-		var pluginPacks = await PluginManager
-			.LoadPluginsFromDirectoryAsync(appPath, folder)
-			.ConfigureAwait(false);
-
-		// UI更新だけUIThreadでラップ
-		await UIThread.InvokeAsync(() =>
+		try
 		{
-			ProfileVm.PluginPacks = pluginPacks;
-			LoadPluginData();
+			// プラグインロードはバックグラウンド
+			var pluginPacks = await PluginManager
+				.LoadPluginsFromDirectoryAsync(appPath, folder, LoadPluginsPerFolder)
+				.ConfigureAwait(false);
+
+			// UI更新だけUIThreadでラップ
+			await UIThread
+				.InvokeAsync(() =>
+				{
+					ProfileVm.PluginPacks = pluginPacks;
+					LoadPluginData();
+					IsUpdatingPlugins = false;
+					UpdatePluginsCommand?.ChangeCanExecute();
+					return default;
+				})
+				.ConfigureAwait(true);
+		}
+		catch (ReflectionTypeLoadException ex)
+		{
+			// 例外の詳細をログ出力
+			Debug.WriteLine($"ReflectionTypeLoadException: {ex.Message}");
+			foreach (var loaderEx in ex.LoaderExceptions)
+			{
+				Debug.WriteLine($"LoaderException: {loaderEx?.Message}");
+			}
 			IsUpdatingPlugins = false;
 			UpdatePluginsCommand?.ChangeCanExecute();
-			return default;
-		}).ConfigureAwait(true);
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"Plugin update failed: {ex}");
+			IsUpdatingPlugins = false;
+			UpdatePluginsCommand?.ChangeCanExecute();
+		}
 
 		sw.Stop();
 		Debug.WriteLine($"Plugin update completed in {sw.ElapsedMilliseconds} ms");
 	}
 
-
 	[PropertyChanged(nameof(ProfileVm))]
 	[SuppressMessage("", "IDE0051")]
-	async ValueTask ProfileVmChangedAsync(ProfileViewModel? value)
+	ValueTask ProfileVmChangedAsync(ProfileViewModel? value)
 	{
 		if (value is null)
-			return;
+			return default;
 
 		ProfileVm = value;
-		await InitializePluginsAsync().ConfigureAwait(true);
 		SetCommands();
 
 		CanOpenPluginFolder = PathManager.TryGetPluginFolder(ProfileVm.AppPath, out _);
+
+		return default;
 	}
 
 	[PropertyChanged(nameof(SelectedPlugin))]
@@ -210,40 +240,11 @@ public class PluginPageViewModel : IDisposable
 	}
 
 	[PropertyChanged(nameof(IsUpdatingPlugins))]
-	[SuppressMessage("","IDE0051")]
+	[SuppressMessage("", "IDE0051")]
 	private ValueTask IsUpdatingPluginsChangedAsync(bool value)
 	{
 		OpenPluginFolderCommand?.ChangeCanExecute();
 		UpdatePluginsCommand?.ChangeCanExecute();
 		return default;
-	}
-
-	protected virtual void Dispose(bool disposing)
-	{
-		if (!_disposedValue)
-		{
-			if (disposing)
-			{
-				PluginsSource?.Dispose();
-			}
-
-			// アンマネージド リソース (アンマネージド オブジェクト) を解放し、ファイナライザーをオーバーライドします
-			// 大きなフィールドを null に設定します
-			_disposedValue = true;
-		}
-	}
-
-	// 'Dispose(bool disposing)' にアンマネージド リソースを解放するコードが含まれる場合にのみ、ファイナライザーをオーバーライドします
-	// ~PluginPageViewModel()
-	// {
-	//     // このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
-	//     Dispose(disposing: false);
-	// }
-
-	public void Dispose()
-	{
-		// このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
-		Dispose(disposing: true);
-		GC.SuppressFinalize(this);
 	}
 }

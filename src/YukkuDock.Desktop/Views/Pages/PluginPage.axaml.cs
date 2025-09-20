@@ -24,6 +24,8 @@ public partial class PluginPage : UserControl
 		// ProfileViewModel を設定し、DataContext を更新
 		DataContext = new PluginPageViewModel();
 		if(DataContext is PluginPageViewModel vm)
+		{
 			vm.ProfileVm = profileVm;
+		}
 	}
 }

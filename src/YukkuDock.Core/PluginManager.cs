@@ -2,8 +2,9 @@ using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Runtime.Loader;
+
+
 using YukkuDock.Core.Models;
 
 namespace YukkuDock.Core;
@@ -62,7 +63,7 @@ public static class PluginManager
 				pluginDirs,
 				parallelOptions,
 				async (dir, ct) =>
-					await ProcessPluginDirectoryAsync(dir, pluginPacks, pluginContext, ct)
+					await ProcessPluginDirectoryAsync(dir, pluginPacks, pluginContext, int.MaxValue, ct)
 						.ConfigureAwait(false)
 			)
 			.ConfigureAwait(false);
@@ -70,13 +71,52 @@ public static class PluginManager
 		return [.. pluginPacks];
 	}
 
+	/// <summary>
+	/// 指定ディレクトリからプラグインをロードする（各フォルダ内のDLL最大数制限付き）。
+	/// </summary>
+	/// <param name="appPath">アプリケーションパス</param>
+	/// <param name="folder">プラグインフォルダ</param>
+	/// <param name="maxPluginsPerFolder">各フォルダ内のDLL最大ロード数</param>
+	/// <returns>ロードされたプラグインのコレクション</returns>
 	[RequiresUnreferencedCode(
-		"Plugin loading uses reflection and AssemblyLoadContext, which is unsafe for trimming."
+		"Calls YukkuDock.Core.PluginManager.ProcessPluginCandidateAsync(FileInfo, ConcurrentBag<PluginPack>, PluginLoadContext, CancellationToken)"
 	)]
+	public static async ValueTask<ICollection<PluginPack>> LoadPluginsFromDirectoryAsync(
+		string appPath,
+		DirectoryInfo folder,
+		int maxPluginsPerFolder
+	)
+	{
+		var pluginDirs = folder.GetDirectories().Where(x => x.Exists).ToArray();
+		var appDir = Path.GetDirectoryName(appPath)!;
+		var pluginPacks = new ConcurrentBag<PluginPack>();
+
+		using var pluginContext = new PluginLoadContext(appDir);
+
+		var parallelOptions = new ParallelOptions
+		{
+			MaxDegreeOfParallelism = Environment.ProcessorCount * 2
+		};
+
+		await Parallel
+			.ForEachAsync(
+				pluginDirs,
+				parallelOptions,
+				async (dir, ct) =>
+					await ProcessPluginDirectoryAsync(dir, pluginPacks, pluginContext, maxPluginsPerFolder, ct)
+						.ConfigureAwait(false)
+			)
+			.ConfigureAwait(false);
+
+		return [.. pluginPacks];
+	}
+
+	[RequiresUnreferencedCode("Calls YukkuDock.Core.PluginManager.ProcessPluginCandidateAsync(FileInfo, ConcurrentBag<PluginPack>, PluginLoadContext, CancellationToken)")]
 	static async ValueTask ProcessPluginDirectoryAsync(
 		DirectoryInfo dir,
 		ConcurrentBag<PluginPack> pluginPacks,
 		PluginLoadContext pluginContext,
+		int maxPluginsPerFolder,
 		CancellationToken ct = default
 	)
 	{
@@ -87,8 +127,10 @@ public static class PluginManager
 		if (candidates is [])
 			return;
 
-		// Spanを使用せず、直接コレクションを反復処理
-		foreach (var dllFile in candidates)
+		// DLL最大数制限
+		var limitedCandidates = candidates.Take(maxPluginsPerFolder);
+
+		foreach (var dllFile in limitedCandidates)
 		{
 			if (ct.IsCancellationRequested)
 				break;
@@ -136,21 +178,21 @@ public static class PluginManager
 	{
 		var primaryDllPath = Path.Combine(dir.FullName, $"{dir.Name}.dll");
 
-		// ファイルの存在確認は非同期I/O操作として適切
 		if (await FileExistsAsync(primaryDllPath).ConfigureAwait(false))
 			return [new FileInfo(primaryDllPath)];
 
-		// ディレクトリ走査はI/O-boundなのでTask.Runは適切
 		var topDlls = await Task.Run(() => dir.GetFiles("*.dll", SearchOption.TopDirectoryOnly))
 			.ConfigureAwait(false);
 
-		if (topDlls is not [])
-			return topDlls;
+		// 除外パターンでフィルタリング
+		var filteredTopDlls = topDlls.Where(f => !IsExcludedDll(f.Name)).ToArray();
+		if (filteredTopDlls is not [])
+			return filteredTopDlls;
 
-		// サブディレクトリも含めて検索（I/O-boundなのでTask.Runは適切）
 		var allDlls = await Task.Run(() => dir.GetFiles("*.dll", SearchOption.AllDirectories))
 			.ConfigureAwait(false);
-		return allDlls;
+
+		return [.. allDlls.Where(f => !IsExcludedDll(f.Name))];
 	}
 
 	public static bool IsExcludedDll(string dllName)
@@ -222,12 +264,16 @@ public static class PluginManager
 	{
 		try
 		{
-			// リフレクション処理はCPU-boundだがTask.Runは不要
 			var types = SafeGetTypes(assembly);
 			foreach (var type in types)
 			{
 				if (!type.IsClass || type.IsAbstract)
 					continue;
+
+				if (type.GetInterfaces().Any(i => string.Equals(i.Name, "IPlugin", StringComparison.Ordinal)))
+				{
+					return true;
+				}
 
 				if (HasYukkuriMovieMakerInterface(type))
 					return true;
@@ -265,7 +311,7 @@ public static class PluginManager
 	{
 		try
 		{
-			return assembly.GetTypes();
+			return assembly.DefinedTypes;
 		}
 		catch (ReflectionTypeLoadException ex)
 		{

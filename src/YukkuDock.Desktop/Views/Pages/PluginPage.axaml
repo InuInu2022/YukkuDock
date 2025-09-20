@@ -9,6 +9,7 @@
   xmlns:vm="using:YukkuDock.Desktop.ViewModels"
   d:DesignHeight="450"
   d:DesignWidth="800"
+  epoxy:Fountain.Well="{Binding PageWell}"
   epoxy:Anchor.Pile="{Binding PagePile}"
   x:DataType="vm:PluginPageViewModel"
   mc:Ignorable="d"
