@@ -9,6 +9,7 @@ namespace YukkuDock.Core.Services;
 /// </summary>
 public interface IProfileService
 {
+	string GetProfileFolder(Guid id);
 	/// <summary>
 	/// プロファイルの安全な読込。失敗時はSuccess=false。
 	/// </summary>

@@ -29,7 +29,7 @@ public class ProfileService : IProfileService
 		}
 	}
 
-	string GetProfileFolder(Guid id) => Path.Combine(profilesRootPath, id.ToString());
+	public string GetProfileFolder(Guid id) => Path.Combine(profilesRootPath, id.ToString());
 
 	public async Task<TryAsyncResult<Profile>> TryLoadAsync(Guid id)
 	{

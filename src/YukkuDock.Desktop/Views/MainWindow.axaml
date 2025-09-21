@@ -146,7 +146,8 @@
             </StackPanel>
           </Button>
 
-          <Button>
+          <Button
+            Command="{Binding DuplicateProfileCommand}">
             <StackPanel Orientation="Horizontal">
               <ui:SymbolIcon
                 Margin="0,0,5,0"
@@ -157,7 +158,8 @@
             </StackPanel>
           </Button>
 
-          <Button>
+          <Button
+            Command="{Binding OpenProfileFolderCommand}">
             <ToolTip.Tip>起動プロファイルフォルダ開く</ToolTip.Tip>
             <StackPanel Orientation="Horizontal">
               <ui:SymbolIcon

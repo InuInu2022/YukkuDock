@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Epoxy;
 using FluentAvalonia.UI.Controls;
@@ -34,6 +35,7 @@ public partial class MainWindowViewModel
 
 	public Command? EditProfileCommand { get; private set; }
 
+	public Command? OpenProfileFolderCommand { get; private set; }
 	public Command? DuplicateProfileCommand { get; private set; }
 	public Command? DeleteProfileCommand { get; private set; }
 
@@ -62,29 +64,6 @@ public partial class MainWindowViewModel
 				await LoadProfilesAsync(profileService).ConfigureAwait(true);
 
 				IsLoaded = false;
-				/* ダミーデータ
-				Profiles =
-				[
-					new(new() { Name = "アイテム0", AppVersion = new Version(4, 44, 1) }),
-					new(new() { Name = "アイテム1", AppVersion = new Version(4, 44, 2) }),
-					new(new() { Name = "アイテム2", AppVersion = new Version(4, 44, 3) }),
-				];
-
-				foreach (var profile in Profiles)
-				{
-					profile.PluginPacks =
-					[
-						.. Enumerable
-							.Range(0, 30)
-							.Select(x => new PluginPack()
-							{
-								Name = $"プラグイン{x}",
-								Version = new Version(x, x, 0),
-								Author = $"作者{x}",
-							}),
-					];
-				}
-				*/
 			}
 		);
 
@@ -122,7 +101,7 @@ public partial class MainWindowViewModel
 	private async ValueTask LoadSettingsAsync(ISettingsService settingsService)
 	{
 		var settingsResult = await settingsService.TryLoadAsync().ConfigureAwait(true);
-		if (settingsResult.Success && settingsResult.Value is { } settings)
+		if (settingsResult.Success && settingsResult.Value is Settings settings)
 		{
 			//設定復元
 			_currentSettings = settings;
@@ -146,8 +125,8 @@ public partial class MainWindowViewModel
 
 			try
 			{
-				using var process = System.Diagnostics.Process.Start(
-					new System.Diagnostics.ProcessStartInfo
+				using var process = Process.Start(
+					new ProcessStartInfo
 					{
 						FileName = SelectedItem.AppPath,
 						UseShellExecute = true,
@@ -213,15 +192,67 @@ public partial class MainWindowViewModel
 				.ConfigureAwait(true);
 		});
 
-		DuplicateProfileCommand = Command.Factory.CreateEasy(async () => { });
+		DuplicateProfileCommand = Command.Factory.CreateEasy(async () =>
+		{
+			if (SelectedItem is null)
+			{
+				return;
+			}
+
+			IsProfileSelected = false;
+			var dupProfile = SelectedItem.Profile with { Id = Guid.NewGuid() };
+			var saveResult = await profileService.TrySaveAsync(dupProfile).ConfigureAwait(true);
+			if (saveResult.Success)
+			{
+				var dupProfileViewModel = new ProfileViewModel(dupProfile, profileService);
+				Profiles.Add(dupProfileViewModel);
+				SelectedItem = dupProfileViewModel;
+			}
+			await Task.Delay(10).ConfigureAwait(true);
+			IsProfileSelected = true;
+		});
+
+		OpenProfileFolderCommand = Command.Factory.CreateEasy(async () =>
+		{
+			if(SelectedItem is null){
+				return;
+			}
+
+			var folder = profileService.GetProfileFolder(SelectedItem.Profile.Id);
+
+			await MainWindowPile
+				.RentAsync(
+					async (window) =>
+					{
+						var topLevel = TopLevel.GetTopLevel(window);
+						if (topLevel is null)
+							return;
+
+						await topLevel
+							.Launcher.LaunchDirectoryInfoAsync(new(folder))
+							.ConfigureAwait(true);
+					}
+				)
+				.ConfigureAwait(true);
+		});
 
 		DeleteProfileCommand = Command.Factory.CreateEasy(async () =>
 		{
 			var td = new TaskDialog
 			{
-				Title = "ゴミ箱に移動しますか？",
+				//Title = "プロファイルの削除",
+				IconSource = new SymbolIconSource { Symbol = Symbol.Important },
+				Header = "ゴミ箱に移動しますか？",
+				SubHeader = $"プロファイル 「{SelectedItem?.Name}」をゴミ箱に移動しますか？",
+				Content = $"""
+					削除プロファイル
+
+					- 名前: {SelectedItem?.Name}
+					- YMM4へのパス: {SelectedItem?.AppPath}
+					- YMM4バージョン: {SelectedItem?.AppVersion}
+					- 説明: {SelectedItem?.Description}
+					""",
 				ShowProgressBar = false,
-				Content = $"プロファイル 「{SelectedItem?.Name}」をゴミ箱に移動しますか？",
 				Buttons = { TaskDialogButton.YesButton, TaskDialogButton.NoButton },
 			};
 
