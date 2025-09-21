@@ -11,6 +11,7 @@ public partial class PluginPage : UserControl
 	public PluginPage()
 	{
 		InitializeComponent();
+		DataContext = App.Container?.GetService<PluginPageViewModel>();
 	}
 
 	public PluginPage(ProfileViewModel profileVm)
@@ -21,8 +22,6 @@ public partial class PluginPage : UserControl
 
 	public void SetProfileViewModel(ProfileViewModel profileVm)
 	{
-		// ProfileViewModel を設定し、DataContext を更新
-		DataContext = App.Container?.GetService<PluginPageViewModel>();
 		if(DataContext is PluginPageViewModel vm)
 		{
 			vm.ProfileVm = profileVm;
