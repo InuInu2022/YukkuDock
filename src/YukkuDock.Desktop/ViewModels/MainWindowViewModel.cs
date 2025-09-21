@@ -11,8 +11,7 @@ namespace YukkuDock.Desktop.ViewModels;
 [ViewModel]
 public partial class MainWindowViewModel
 {
-	private readonly ISettingsService settingsService;
-	private readonly IProfileService profileService;
+
 
 	public ObservableCollection<ProfileViewModel> Profiles { get; set; }
 
@@ -34,17 +33,23 @@ public partial class MainWindowViewModel
 
 	public Command? EditProfileCommand { get; private set; }
 
+	readonly ISettingsService settingsService;
+	readonly IProfileService profileService;
+	Settings? _currentSettings;
+
 	public MainWindowViewModel(
 		ISettingsService settingsService,
 		IProfileService profileService
 	)
 	{
+		IsLoaded = true;
 		this.settingsService = settingsService;
 		this.profileService = profileService;
 		Profiles = [];
 
 		MainWindowWell.Add(
 			"Loaded",
+			[MemberNotNull(nameof(_currentSettings))]
 			async () =>
 			{
 				IsLoaded = true;
@@ -84,6 +89,19 @@ public partial class MainWindowViewModel
 			}
 		);
 
+		MainWindowWell.Add(
+			"Closed",
+			async () =>
+			{
+				// ウィンドウ終了時に設定保存
+				if(_currentSettings is null) return;
+
+				var result = await settingsService
+					.TrySaveAsync(_currentSettings)
+					.ConfigureAwait(true);
+			}
+		);
+
 		InitializeCommands();
 	}
 
@@ -94,12 +112,13 @@ public partial class MainWindowViewModel
 		{
 			foreach (var profile in profilesResult.Value ?? [])
 			{
-				var vm = new ProfileViewModel(profile);
+				var vm = new ProfileViewModel(profile, profileService);
 				Profiles.Add(vm);
 			}
 		}
 	}
 
+	[MemberNotNull(nameof(_currentSettings))]
 	private async ValueTask LoadSettingsAsync(ISettingsService settingsService)
 	{
 		var settingsResult = await settingsService.TryLoadAsync()
@@ -107,6 +126,9 @@ public partial class MainWindowViewModel
 		if (settingsResult.Success && settingsResult.Value is { } settings)
 		{
 			//設定復元
+			_currentSettings = settings;
+		}else{
+			_currentSettings = new Settings();
 		}
 	}
 
@@ -158,7 +180,7 @@ public partial class MainWindowViewModel
 				var saveResult = await profileService.TrySaveAsync(newProfile).ConfigureAwait(true);
 				if (saveResult.Success)
 				{
-					var newProfileViewModel = new ProfileViewModel(newProfile);
+					var newProfileViewModel = new ProfileViewModel(newProfile, profileService);
 					Profiles.Add(newProfileViewModel);
 					SelectedItem = newProfileViewModel;
 				}

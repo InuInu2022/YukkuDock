@@ -29,7 +29,22 @@
     <vm:MainWindowViewModel />
   </Design.DataContext>
 
+
   <DockPanel>
+    <AdornerLayer.Adorner>
+      <Grid>
+        <Border
+          Background="Black"
+          IsVisible="{Binding IsLoaded}"
+          Opacity="0.8"
+          ZIndex="10"
+          >
+          <ui:ProgressRing Width="100" Height="100" />
+        </Border>
+      </Grid>
+    </AdornerLayer.Adorner>
+
+
     <ui:CommandBar
       HorizontalAlignment="Stretch"
       VerticalAlignment="Top"
@@ -77,11 +92,11 @@
             >
             <TextBlock FontSize="10" Text="{Binding SelectedItem.AppVersion, Converter={StaticResource EmptyVersionIfNull}}" />
             <ui:BitmapIcon
-                Width="50"
-                Height="50"
-                Margin="10"
-                UriSource="avares://YukkuDock.Desktop/Assets/profile_default.png"
-                />
+              Width="50"
+              Height="50"
+              Margin="10"
+              UriSource="avares://YukkuDock.Desktop/Assets/profile_default.png"
+              />
             <TextBox Text="{Binding SelectedItem.Name, Mode=TwoWay}" TextWrapping="Wrap" />
           </StackPanel>
 

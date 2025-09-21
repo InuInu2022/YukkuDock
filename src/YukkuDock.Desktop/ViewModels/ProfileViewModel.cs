@@ -1,8 +1,8 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-
 using Epoxy;
-
 using YukkuDock.Core.Models;
+using YukkuDock.Core.Services;
 
 namespace YukkuDock.Desktop.ViewModels;
 
@@ -10,9 +10,9 @@ namespace YukkuDock.Desktop.ViewModels;
 /// ユーザープロファイルのViewModelを表します。
 /// </summary>
 [ViewModel]
-public partial class ProfileViewModel(Profile profile)
+public partial class ProfileViewModel(Profile profile, IProfileService profileService)
 {
-	readonly Profile _profile = profile;
+	public Profile Profile { get; } = profile;
 
 	public string Name { get; set; } = profile.Name;
 	public Version? AppVersion { get; set; } = profile.AppVersion;
@@ -23,13 +23,59 @@ public partial class ProfileViewModel(Profile profile)
 
 	public bool IsAppExists { get; private set; }
 
+	Timer? saveTimer;
+	const int DebounceMilliseconds = 1000;
+	readonly IProfileService _profileService = profileService;
+
+	[SuppressMessage("Usage", "VSTHRD101:Avoid unsupported async delegates", Justification = "<保留中>")]
+	[SuppressMessage("Usage", "MA0147:Avoid async void method for delegate", Justification = "<保留中>")]
+	[SuppressMessage("Concurrency", "PH_S034:Async Lambda Inferred to Async Void", Justification = "<保留中>")]
+	void RequestSave()
+	{
+		// Timerをリセット（既存TimerがあればDispose）
+		saveTimer?.Dispose();
+		saveTimer = new Timer(
+			async _ =>
+			{
+				try
+				{
+					var result = await _profileService
+						.TrySaveAsync(Profile)
+						.ConfigureAwait(true);
+					if (!result.Success)
+					{
+						Debug.WriteLine("プロファイルの保存に失敗しました。");
+					}
+				}
+				catch (Exception)
+				{
+					Debug.WriteLine("プロファイルの保存に失敗しました。");
+				}
+				finally
+				{
+					if (saveTimer is not null)
+					{
+						await saveTimer.DisposeAsync()
+							.ConfigureAwait(true);
+					}
+
+					saveTimer = null;
+				}
+			},
+			null,
+			DebounceMilliseconds,
+			Timeout.Infinite
+		);
+	}
+
 	[PropertyChanged(nameof(Name))]
 	[SuppressMessage("", "IDE0051")]
 	private ValueTask NameChangedAsync(string value)
 	{
-		if (!string.Equals(_profile.Name, value, StringComparison.Ordinal))
+		if (!string.Equals(Profile.Name, value, StringComparison.Ordinal))
 		{
-			_profile.Name = value;
+			Profile.Name = value;
+			RequestSave();
 		}
 		return default;
 	}
@@ -38,9 +84,10 @@ public partial class ProfileViewModel(Profile profile)
 	[SuppressMessage("", "IDE0051")]
 	private ValueTask DescriptionChangedAsync(string value)
 	{
-		if (!string.Equals(_profile.Description, value, StringComparison.Ordinal))
+		if (!string.Equals(Profile.Description, value, StringComparison.Ordinal))
 		{
-			_profile.Description = value;
+			Profile.Description = value;
+			RequestSave();
 		}
 		return default;
 	}
@@ -49,10 +96,11 @@ public partial class ProfileViewModel(Profile profile)
 	[SuppressMessage("", "IDE0051")]
 	private ValueTask AppPathChangedAsync(string value)
 	{
-		if (!string.Equals(_profile.AppPath, value, StringComparison.Ordinal))
+		IsAppExists = File.Exists(value);
+		if (!string.Equals(Profile.AppPath, value, StringComparison.Ordinal))
 		{
-			_profile.AppPath = value;
-			IsAppExists = File.Exists(value);
+			Profile.AppPath = value;
+			RequestSave();
 		}
 		return default;
 	}
@@ -61,20 +109,22 @@ public partial class ProfileViewModel(Profile profile)
 	[SuppressMessage("", "IDE0051")]
 	private ValueTask AppVersionChangedAsync(Version? value)
 	{
-		if (!Equals(_profile.AppVersion, value))
+		if (!Equals(Profile.AppVersion, value))
 		{
-			_profile.AppVersion = value;
+			Profile.AppVersion = value;
+			RequestSave();
 		}
 		return default;
 	}
 
 	[PropertyChanged(nameof(PluginPacks))]
-	[SuppressMessage("","IDE0051")]
+	[SuppressMessage("", "IDE0051")]
 	private ValueTask PluginPacksChangedAsync(ICollection<PluginPack> value)
 	{
-		if (!Equals(_profile.PluginPacks, value))
+		if (!Equals(Profile.PluginPacks, value))
 		{
-			_profile.PluginPacks = value;
+			Profile.PluginPacks = value;
+			RequestSave();
 		}
 		return default;
 	}

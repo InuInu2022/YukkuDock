@@ -54,7 +54,7 @@ public partial class ProfileWindowViewModel
 		this.settingsService = settingsService;
 
 		ProfileVm = profileVm;
-		WindowTitle = $"起動プロファイル設定 - {profileVm.Name} - YukkuDock";
+
 
 		Pages =
 		[
@@ -77,6 +77,8 @@ public partial class ProfileWindowViewModel
 			"Loaded",
 			async () =>
 			{
+				WindowTitle = $"起動プロファイル設定 - {ProfileVm.Name} - YukkuDock";
+
 				SelectedContent = Pages[0];
 
 				await LoadPageContentAsync(Pages[0]).ConfigureAwait(true);
@@ -127,6 +129,7 @@ public partial class ProfileWindowViewModel
 		IsClosable = false;
 
 		//TODO: save profile settings
+		await profileService.TrySaveAsync(ProfileVm.Profile).ConfigureAwait(true);
 
 		// Close the window
 		await WindowPile
