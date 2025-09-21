@@ -54,7 +54,7 @@ public partial class ProfileWindowViewModel
 		this.settingsService = settingsService;
 
 		ProfileVm = profileVm;
-		WindowTitle = $"プロファイル設定 - {profileVm.Name} - YukkuDock";
+		WindowTitle = $"起動プロファイル設定 - {profileVm.Name} - YukkuDock";
 
 		Pages =
 		[

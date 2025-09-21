@@ -9,23 +9,36 @@ namespace YukkuDock.Core.Services;
 /// </summary>
 public class ProfileService : IProfileService
 {
-	/// <summary>
-	/// プロファイルの安全な読込。失敗時はSuccess=false。
-	/// </summary>
-	public async Task<TryAsyncResult<Profile>> TryLoadAsync(string profileFolderPath)
+	readonly string profilesRootPath;
+
+	public ProfileService()
 	{
+		var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+		profilesRootPath = Path.Combine(appData, "YukkuDock", "Profiles");
+	}
+
+	public IEnumerable<Guid> GetAllProfileIds()
+	{
+		if (!Directory.Exists(profilesRootPath))
+			yield break;
+
+		foreach (var dir in Directory.EnumerateDirectories(profilesRootPath))
+		{
+			if (Guid.TryParse(Path.GetFileName(dir), out var id))
+				yield return id;
+		}
+	}
+
+	string GetProfileFolder(Guid id) => Path.Combine(profilesRootPath, id.ToString());
+
+	public async Task<TryAsyncResult<Profile>> TryLoadAsync(Guid id)
+	{
+		var folder = GetProfileFolder(id);
+		var profilePath = Path.Combine(folder, "profile.json");
 		try
 		{
-			if (!Directory.Exists(profileFolderPath))
-			{
-				return new(false, null);
-			}
-
-			var profilePath = Path.Combine(profileFolderPath, "profile.json");
 			if (!File.Exists(profilePath))
-			{
 				return new(false, null);
-			}
 
 			var json = await File.ReadAllTextAsync(profilePath).ConfigureAwait(false);
 			var profile = JsonSerializer.Deserialize(json, ProfileJsonContext.Default.Profile);
@@ -37,16 +50,35 @@ public class ProfileService : IProfileService
 		}
 	}
 
-	/// <summary>
-	/// プロファイルの安全な保存。失敗時はSuccess=false。
-	/// </summary>
-	public async Task<TryAsyncResult<bool>> TrySaveAsync(Profile profile, string profileFolderPath)
+	public async Task<TryAsyncResult<IReadOnlyList<Profile>>> TryLoadAllAsync()
 	{
+		var profiles = new List<Profile>();
 		try
 		{
-			var profilePath = Path.Combine(profileFolderPath, "profile.json");
-			if (!Directory.Exists(profileFolderPath))
-				Directory.CreateDirectory(profileFolderPath);
+			foreach (var id in GetAllProfileIds())
+			{
+				var result = await TryLoadAsync(id).ConfigureAwait(false);
+				if (result.Success && result.Value is not null)
+				{
+					profiles.Add(result.Value);
+				}
+			}
+		}
+		catch
+		{
+			return new(false, null);
+		}
+		return new(true, profiles);
+	}
+
+	public async Task<TryAsyncResult<bool>> TrySaveAsync(Profile profile)
+	{
+		var folder = GetProfileFolder(profile.Id);
+		var profilePath = Path.Combine(folder, "profile.json");
+		try
+		{
+			if (!Directory.Exists(folder))
+				Directory.CreateDirectory(folder);
 			var json = JsonSerializer.Serialize(profile, ProfileJsonContext.Default.Profile);
 			await File.WriteAllTextAsync(profilePath, json).ConfigureAwait(false);
 			return new(true, true);

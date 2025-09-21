@@ -21,6 +21,9 @@ public partial class MainWindowViewModel
 	public Well<Window> MainWindowWell { get; } = Well.Factory.Create<Window>();
 	public Pile<Window> MainWindowPile { get; } = Pile.Factory.Create<Window>();
 
+
+	public bool IsLoaded { get; set; }
+
 	public bool IsProfileSelected { get; set; }
 
 	public Command? AddCommand { get; private set; }
@@ -42,8 +45,20 @@ public partial class MainWindowViewModel
 
 		MainWindowWell.Add(
 			"Loaded",
-			() =>
+			async () =>
 			{
+				IsLoaded = true;
+
+				//load settings
+				await LoadSettingsAsync(settingsService)
+					.ConfigureAwait(true);
+
+				//load profiles
+				await LoadProfilesAsync(profileService)
+					.ConfigureAwait(true);
+
+				IsLoaded = false;
+				/* ダミーデータ
 				Profiles =
 				[
 					new(new() { Name = "アイテム0", AppVersion = new Version(4, 44, 1) }),
@@ -65,12 +80,34 @@ public partial class MainWindowViewModel
 							}),
 					];
 				}
-
-				return default;
+				*/
 			}
 		);
 
 		InitializeCommands();
+	}
+
+	private async ValueTask LoadProfilesAsync(IProfileService profileService)
+	{
+		var profilesResult = await profileService.TryLoadAllAsync().ConfigureAwait(true);
+		if (profilesResult.Success)
+		{
+			foreach (var profile in profilesResult.Value ?? [])
+			{
+				var vm = new ProfileViewModel(profile);
+				Profiles.Add(vm);
+			}
+		}
+	}
+
+	private async ValueTask LoadSettingsAsync(ISettingsService settingsService)
+	{
+		var settingsResult = await settingsService.TryLoadAsync()
+			.ConfigureAwait(true);
+		if (settingsResult.Success && settingsResult.Value is { } settings)
+		{
+			//設定復元
+		}
 	}
 
 	private void InitializeCommands()
@@ -116,12 +153,15 @@ public partial class MainWindowViewModel
 				var newProfile = new Profile
 				{
 					Name = "新しいプロファイル",
-					//AppVersion = new Version(4, 45, 5),
-					Description = "ボタンで追加された新しいプロファイルの説明",
+					Description = "",
 				};
-				var newProfileViewModel = new ProfileViewModel(newProfile);
-				Profiles.Add(newProfileViewModel);
-				SelectedItem = newProfileViewModel;
+				var saveResult = await profileService.TrySaveAsync(newProfile).ConfigureAwait(true);
+				if (saveResult.Success)
+				{
+					var newProfileViewModel = new ProfileViewModel(newProfile);
+					Profiles.Add(newProfileViewModel);
+					SelectedItem = newProfileViewModel;
+				}
 				await Task.Delay(10).ConfigureAwait(true);
 				IsProfileSelected = true;
 				IsAddButtonEnabled = true;
