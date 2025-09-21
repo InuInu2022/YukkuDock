@@ -47,8 +47,8 @@ public class PluginPageViewModel
 		static (_, __) =>
 			new Viewbox()
 			{
-				Width = 64,
-				Height = 16,
+				Width = 32,
+				Height = 20,
 				Child = new ToggleSwitch
 				{
 					[!ToggleSwitch.IsCheckedProperty] = new Binding(
