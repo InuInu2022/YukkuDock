@@ -9,6 +9,7 @@ using Avalonia.Platform.Storage;
 using Epoxy;
 using YukkuDock.Core;
 using YukkuDock.Core.Models;
+using YukkuDock.Core.Services;
 using YukkuDock.Desktop.Extensions;
 using YukkuDock.Desktop.Views;
 
@@ -70,8 +71,14 @@ public class PluginPageViewModel
 			}
 	);
 
-	public PluginPageViewModel()
+	readonly IProfileService profileService;
+	readonly ISettingsService settingsService;
+
+	public PluginPageViewModel(IProfileService profileService, ISettingsService settingsService)
 	{
+		this.profileService = profileService;
+		this.settingsService = settingsService;
+
 		SetCommands();
 
 		PageWell.Add("Loaded", async () =>

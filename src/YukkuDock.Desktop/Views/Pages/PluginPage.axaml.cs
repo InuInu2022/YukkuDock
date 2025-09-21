@@ -22,7 +22,7 @@ public partial class PluginPage : UserControl
 	public void SetProfileViewModel(ProfileViewModel profileVm)
 	{
 		// ProfileViewModel を設定し、DataContext を更新
-		DataContext = new PluginPageViewModel();
+		DataContext = App.Container?.GetService<PluginPageViewModel>();
 		if(DataContext is PluginPageViewModel vm)
 		{
 			vm.ProfileVm = profileVm;

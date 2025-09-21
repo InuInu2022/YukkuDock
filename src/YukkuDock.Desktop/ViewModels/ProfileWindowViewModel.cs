@@ -4,6 +4,7 @@ using Avalonia.Platform.Storage;
 using Epoxy;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
+using YukkuDock.Core.Services;
 using YukkuDock.Desktop.Views;
 
 namespace YukkuDock.Desktop.ViewModels;
@@ -11,7 +12,7 @@ namespace YukkuDock.Desktop.ViewModels;
 [ViewModel]
 public partial class ProfileWindowViewModel
 {
-	public ProfileViewModel ProfileVm { get; }
+	public ProfileViewModel ProfileVm { get; set; }
 	public int SelectedIndex { get; set; }
 	public PageItem? SelectedContent { get; set; }
 
@@ -40,8 +41,18 @@ public partial class ProfileWindowViewModel
 
 	bool _isLoaded;
 
-	public ProfileWindowViewModel(ProfileViewModel profileVm)
+	readonly IProfileService profileService;
+	readonly ISettingsService settingsService;
+
+	public ProfileWindowViewModel(
+		ProfileViewModel profileVm,
+		IProfileService profileService,
+		ISettingsService settingsService
+	)
 	{
+		this.profileService = profileService;
+		this.settingsService = settingsService;
+
 		ProfileVm = profileVm;
 		WindowTitle = $"プロファイル設定 - {profileVm.Name} - YukkuDock";
 
@@ -131,8 +142,6 @@ public partial class ProfileWindowViewModel
 
 		IsClosable = true;
 	}
-
-
 
 	async Task LoadPageContentAsync(PageItem value)
 	{

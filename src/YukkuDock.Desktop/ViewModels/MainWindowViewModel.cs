@@ -1,28 +1,25 @@
 ﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
-
 using Epoxy;
-
 using YukkuDock.Core.Models;
+using YukkuDock.Core.Services;
 
 namespace YukkuDock.Desktop.ViewModels;
 
 [ViewModel]
 public partial class MainWindowViewModel
 {
-
+	private readonly ISettingsService settingsService;
+	private readonly IProfileService profileService;
 
 	public ObservableCollection<ProfileViewModel> Profiles { get; set; }
 
 	public ProfileViewModel? SelectedItem { get; set; }
 
-	public Well<Window> MainWindowWell { get; }
-		= Well.Factory.Create<Window>();
-	public Pile<Window> MainWindowPile { get; }
-		= Pile.Factory.Create<Window>();
+	public Well<Window> MainWindowWell { get; } = Well.Factory.Create<Window>();
+	public Pile<Window> MainWindowPile { get; } = Pile.Factory.Create<Window>();
 
 	public bool IsProfileSelected { get; set; }
 
@@ -34,8 +31,13 @@ public partial class MainWindowViewModel
 
 	public Command? EditProfileCommand { get; private set; }
 
-	public MainWindowViewModel()
+	public MainWindowViewModel(
+		ISettingsService settingsService,
+		IProfileService profileService
+	)
 	{
+		this.settingsService = settingsService;
+		this.profileService = profileService;
 		Profiles = [];
 
 		MainWindowWell.Add(
@@ -51,14 +53,16 @@ public partial class MainWindowViewModel
 
 				foreach (var profile in Profiles)
 				{
-					profile.PluginPacks = [.. Enumerable
-						.Range(0, 30)
-						.Select(x => new PluginPack()
-						{
-							Name = $"プラグイン{x}",
-							Version = new Version(x, x, 0),
-							Author = $"作者{x}",
-						}),
+					profile.PluginPacks =
+					[
+						.. Enumerable
+							.Range(0, 30)
+							.Select(x => new PluginPack()
+							{
+								Name = $"プラグイン{x}",
+								Version = new Version(x, x, 0),
+								Author = $"作者{x}",
+							}),
 					];
 				}
 
@@ -81,11 +85,13 @@ public partial class MainWindowViewModel
 
 			try
 			{
-				using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-				{
-					FileName = SelectedItem.AppPath,
-					UseShellExecute = true,
-				});
+				using var process = System.Diagnostics.Process.Start(
+					new System.Diagnostics.ProcessStartInfo
+					{
+						FileName = SelectedItem.AppPath,
+						UseShellExecute = true,
+					}
+				);
 			}
 			catch (Exception ex)
 			{
@@ -94,31 +100,34 @@ public partial class MainWindowViewModel
 			}
 			IsAddButtonEnabled = true;
 			return default;
-		}/*, () =>
+		} /*, () =>
 		{
 			return IsAddButtonEnabled && (SelectedItem?.IsAppExists ?? false);
-		}*/);
+		}*/
+		);
 
-		AddCommand = Command.Factory.Create(async () =>
-		{
-			IsAddButtonEnabled = false;
-
-			//TODO:show dialog
-
-			var newProfile = new Profile
+		AddCommand = Command.Factory.Create(
+			async () =>
 			{
-				Name = "新しいプロファイル",
-				//AppVersion = new Version(4, 45, 5),
-				Description = "ボタンで追加された新しいプロファイルの説明",
-			};
-			var newProfileViewModel = new ProfileViewModel(newProfile);
-			Profiles.Add(newProfileViewModel);
-			SelectedItem = newProfileViewModel;
-			await Task.Delay(10);
-			IsProfileSelected = true;
-			IsAddButtonEnabled = true;
-		},
-		() => IsAddButtonEnabled);
+				IsAddButtonEnabled = false;
+
+				//TODO:show dialog
+
+				var newProfile = new Profile
+				{
+					Name = "新しいプロファイル",
+					//AppVersion = new Version(4, 45, 5),
+					Description = "ボタンで追加された新しいプロファイルの説明",
+				};
+				var newProfileViewModel = new ProfileViewModel(newProfile);
+				Profiles.Add(newProfileViewModel);
+				SelectedItem = newProfileViewModel;
+				await Task.Delay(10).ConfigureAwait(true);
+				IsProfileSelected = true;
+				IsAddButtonEnabled = true;
+			},
+			() => IsAddButtonEnabled
+		);
 
 		EditProfileCommand = Command.Factory.Create(async () =>
 		{
@@ -129,17 +138,20 @@ public partial class MainWindowViewModel
 
 			var profileWindow = new ProfileWindow
 			{
-				DataContext = new ProfileWindowViewModel(SelectedItem),
+				DataContext = App.Container?.GetService<ProfileWindowViewModel>(),
 			};
-
-			await MainWindowPile.RentAsync(async owner =>
+			if (profileWindow.DataContext is ProfileWindowViewModel vm)
 			{
-				await profileWindow
-					.ShowDialog(owner)
-					.ConfigureAwait(true);
-			}).ConfigureAwait(true);
-		}
-		);
+				vm.ProfileVm = SelectedItem;
+			}
+
+			await MainWindowPile
+				.RentAsync(async owner =>
+				{
+					await profileWindow.ShowDialog(owner).ConfigureAwait(true);
+				})
+				.ConfigureAwait(true);
+		});
 	}
 
 	[PropertyChanged(nameof(SelectedItem))]
