@@ -88,4 +88,21 @@ public class ProfileService : IProfileService
 			return new(false, false);
 		}
 	}
+
+	public async Task<TryAsyncResult<bool>> TryDeleteAsync(Profile profile) {
+		var folder = GetProfileFolder(profile.Id);
+		try
+		{
+			if (Directory.Exists(folder))
+			{
+				var result = await RecycleBinManager.TryMoveAsync(folder).ConfigureAwait(false);
+				return new(result.Success, result.Success);
+			}
+			return new(false, false);
+		}
+		catch
+		{
+			return new(false, false);
+		}
+	}
 }

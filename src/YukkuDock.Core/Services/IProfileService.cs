@@ -23,4 +23,9 @@ public interface IProfileService
 	/// プロファイルの安全な保存。失敗時はSuccess=false。
 	/// </summary>
 	Task<TryAsyncResult<bool>> TrySaveAsync(Profile profile);
+
+	/// <summary>
+	/// プロファイルの安全な削除。ゴミ箱に移動します。失敗時はSuccess=false。
+	/// </summary>
+	Task<TryAsyncResult<bool>> TryDeleteAsync(Profile profile);
 }

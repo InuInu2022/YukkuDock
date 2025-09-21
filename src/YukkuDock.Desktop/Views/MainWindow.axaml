@@ -124,6 +124,7 @@
               <TextBlock Text="起動" />
             </StackPanel>
           </Button>
+
           <Button Command="{Binding EditProfileCommand}">
             <AdornerLayer.Adorner>
               <Grid>
@@ -144,6 +145,7 @@
               <TextBlock Text="設定" />
             </StackPanel>
           </Button>
+
           <Button>
             <StackPanel Orientation="Horizontal">
               <ui:SymbolIcon
@@ -154,8 +156,23 @@
               <TextBlock Text="複製" />
             </StackPanel>
           </Button>
-          <Separator />
+
           <Button>
+            <ToolTip.Tip>起動プロファイルフォルダ開く</ToolTip.Tip>
+            <StackPanel Orientation="Horizontal">
+              <ui:SymbolIcon
+                Margin="0,0,5,0"
+                FontSize="16"
+                Symbol="OpenFolder"
+                />
+              <TextBlock Text="フォルダを開く" />
+            </StackPanel>
+          </Button>
+
+          <Separator Height="5" />
+
+          <Button
+            Command="{Binding DeleteProfileCommand}">
             <StackPanel Orientation="Horizontal">
               <ui:SymbolIcon
                 Margin="0,0,5,0"

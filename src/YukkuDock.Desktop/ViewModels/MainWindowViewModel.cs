@@ -2,24 +2,25 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
+using Avalonia.VisualTree;
 using Epoxy;
+using FluentAvalonia.UI.Controls;
+using YukkuDock.Core;
 using YukkuDock.Core.Models;
 using YukkuDock.Core.Services;
+using YukkuDock.Desktop.Extensions;
 
 namespace YukkuDock.Desktop.ViewModels;
 
 [ViewModel]
 public partial class MainWindowViewModel
 {
-
-
 	public ObservableCollection<ProfileViewModel> Profiles { get; set; }
 
 	public ProfileViewModel? SelectedItem { get; set; }
 
 	public Well<Window> MainWindowWell { get; } = Well.Factory.Create<Window>();
 	public Pile<Window> MainWindowPile { get; } = Pile.Factory.Create<Window>();
-
 
 	public bool IsLoaded { get; set; }
 
@@ -33,14 +34,14 @@ public partial class MainWindowViewModel
 
 	public Command? EditProfileCommand { get; private set; }
 
+	public Command? DuplicateProfileCommand { get; private set; }
+	public Command? DeleteProfileCommand { get; private set; }
+
 	readonly ISettingsService settingsService;
 	readonly IProfileService profileService;
 	Settings? _currentSettings;
 
-	public MainWindowViewModel(
-		ISettingsService settingsService,
-		IProfileService profileService
-	)
+	public MainWindowViewModel(ISettingsService settingsService, IProfileService profileService)
 	{
 		IsLoaded = true;
 		this.settingsService = settingsService;
@@ -55,12 +56,10 @@ public partial class MainWindowViewModel
 				IsLoaded = true;
 
 				//load settings
-				await LoadSettingsAsync(settingsService)
-					.ConfigureAwait(true);
+				await LoadSettingsAsync(settingsService).ConfigureAwait(true);
 
 				//load profiles
-				await LoadProfilesAsync(profileService)
-					.ConfigureAwait(true);
+				await LoadProfilesAsync(profileService).ConfigureAwait(true);
 
 				IsLoaded = false;
 				/* ダミーデータ
@@ -94,7 +93,8 @@ public partial class MainWindowViewModel
 			async () =>
 			{
 				// ウィンドウ終了時に設定保存
-				if(_currentSettings is null) return;
+				if (_currentSettings is null)
+					return;
 
 				var result = await settingsService
 					.TrySaveAsync(_currentSettings)
@@ -121,16 +121,18 @@ public partial class MainWindowViewModel
 	[MemberNotNull(nameof(_currentSettings))]
 	private async ValueTask LoadSettingsAsync(ISettingsService settingsService)
 	{
-		var settingsResult = await settingsService.TryLoadAsync()
-			.ConfigureAwait(true);
+		var settingsResult = await settingsService.TryLoadAsync().ConfigureAwait(true);
 		if (settingsResult.Success && settingsResult.Value is { } settings)
 		{
 			//設定復元
 			_currentSettings = settings;
-		}else{
+		}
+		else
+		{
 			_currentSettings = new Settings();
 		}
 	}
+
 
 	private void InitializeCommands()
 	{
@@ -172,11 +174,7 @@ public partial class MainWindowViewModel
 
 				//TODO:show dialog
 
-				var newProfile = new Profile
-				{
-					Name = "新しいプロファイル",
-					Description = "",
-				};
+				var newProfile = new Profile { Name = "新しいプロファイル", Description = "" };
 				var saveResult = await profileService.TrySaveAsync(newProfile).ConfigureAwait(true);
 				if (saveResult.Success)
 				{
@@ -214,6 +212,66 @@ public partial class MainWindowViewModel
 				})
 				.ConfigureAwait(true);
 		});
+
+		DuplicateProfileCommand = Command.Factory.CreateEasy(async () => { });
+
+		DeleteProfileCommand = Command.Factory.CreateEasy(async () =>
+		{
+			var td = new TaskDialog
+			{
+				Title = "ゴミ箱に移動しますか？",
+				ShowProgressBar = false,
+				Content = $"プロファイル 「{SelectedItem?.Name}」をゴミ箱に移動しますか？",
+				Buttons = { TaskDialogButton.YesButton, TaskDialogButton.NoButton },
+			};
+
+
+			td.Closing += DeleteProfileAsync;
+
+			await MainWindowPile
+				.RentAsync(owner =>
+				{
+					td.XamlRoot = TopLevel.GetTopLevel(owner);
+					return default;
+				})
+				.ConfigureAwait(true);
+			await td.ShowAsync().ConfigureAwait(true);
+		});
+	}
+
+	[SuppressMessage(
+		"Usage",
+		"VSTHRD101"
+	)]
+	[SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<保留中>")]
+	[SuppressMessage("Style", "VSTHRD200:Use \"Async\" suffix for async methods", Justification = "<保留中>")]
+	async void DeleteProfileAsync(object? sender, TaskDialogClosingEventArgs e)
+	{
+		if ((TaskDialogStandardResult)e.Result == TaskDialogStandardResult.Yes)
+		{
+			var deferral = e.GetDeferral();
+			var td = sender as TaskDialog;
+			if (SelectedItem is null || td is null)
+			{
+				deferral.Complete();
+				return;
+			}
+
+			td.ShowProgressBar = true;
+			td.SetProgressBarState(0, TaskDialogProgressState.Indeterminate);
+
+			_ = await profileService
+				.TryDeleteAsync(SelectedItem.Profile).ConfigureAwait(true);
+			Profiles.Remove(SelectedItem);
+			SelectedItem = null;
+			IsProfileSelected = false;
+
+			deferral.Complete();
+		}
+		else
+		{
+			//e.Cancel = true;
+		}
 	}
 
 	[PropertyChanged(nameof(SelectedItem))]
