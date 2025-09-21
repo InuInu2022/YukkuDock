@@ -3,5 +3,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <IsPackable>true</IsPackable>
     <IsTrimmable>true</IsTrimmable>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)\Generated</CompilerGeneratedFilesOutputPath>
   </PropertyGroup>
 </Project>

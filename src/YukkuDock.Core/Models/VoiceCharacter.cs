@@ -11,6 +11,6 @@ public record VoiceCharacter : IBackupable
 	public bool IsEnabled { get; set; } = true;
 	public string MovedPath { get; set; } = string.Empty;
 
-	public bool IsIgnoredBackup { get; set; } = false;
+	public bool IsIgnoredBackup { get; set; }
 	public string BackupPath { get; set; } = string.Empty;
 }
