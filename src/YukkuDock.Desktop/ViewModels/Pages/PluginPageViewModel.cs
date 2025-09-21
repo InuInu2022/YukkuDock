@@ -87,7 +87,7 @@ public class PluginPageViewModel
 				return;
 
 			IsUpdatingPlugins = true;
-			LoadPluginData([]);
+			LoadPluginData(ProfileVm.PluginPacks);
 
 			// キャッシュ判定
 			if (ProfilePluginCache.TryGetValue(ProfileVm.AppPath, out var cached))
@@ -103,7 +103,10 @@ public class PluginPageViewModel
 			}
 
 			// 逐次読込
-			await UpdatePluginsProgressivelyAsync().ConfigureAwait(true);
+			if (ProfileVm.PluginPacks is null || ProfileVm.PluginPacks.Count == 0)
+			{
+				await UpdatePluginsProgressivelyAsync().ConfigureAwait(true);
+			}
 
 			IsUpdatingPlugins = false;
 		});

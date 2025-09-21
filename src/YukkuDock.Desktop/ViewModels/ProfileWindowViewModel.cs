@@ -129,7 +129,6 @@ public partial class ProfileWindowViewModel
 	{
 		IsClosable = false;
 
-		//TODO: save profile settings
 		await profileService.TrySaveAsync(ProfileVm.Profile).ConfigureAwait(true);
 
 		// Close the window
