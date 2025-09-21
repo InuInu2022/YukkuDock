@@ -54,6 +54,7 @@ public partial class ProfileWindowViewModel
 		this.settingsService = settingsService;
 
 		ProfileVm = profileVm;
+		WindowTitle = "読み込み中... - YukkuDock";
 
 
 		Pages =
