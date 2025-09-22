@@ -52,13 +52,29 @@
           </StackPanel>
         </Button>
 
-        <Button
+        <SplitButton
           Margin="5,2,0,2"
           HorizontalAlignment="Right"
           Command="{Binding OpenPluginFolderCommand}"
           IsEnabled="{Binding CanOpenPluginFolder}"
           >
           <ToolTip.Tip>プラグインフォルダ開く</ToolTip.Tip>
+          <SplitButton.Flyout>
+            <ui:FAMenuFlyout>
+              <!--  use the GroupName property to group radio items together  -->
+              <ui:RadioMenuFlyoutItem
+                GroupName="OpenGroup"
+                IsChecked="{Binding !IsOpenAllPluginFolder}"
+                Text="選択中のプラグイン"
+                IsEnabled="False"
+                />
+              <ui:RadioMenuFlyoutItem
+                GroupName="OpenGroup"
+                IsChecked="{Binding IsOpenAllPluginFolder}"
+                Text="全プラグイン"
+                />
+            </ui:FAMenuFlyout>
+          </SplitButton.Flyout>
           <StackPanel Orientation="Horizontal">
             <ui:SymbolIcon
               Margin="0,0,5,0"
@@ -66,10 +82,12 @@
               Symbol="OpenFolder"
               />
           </StackPanel>
-        </Button>
+        </SplitButton>
 
-        <SplitButton Margin="5,2,0,2">
-          <ToolTip.Tip>バックアップ</ToolTip.Tip>
+        <SplitButton Margin="5,2,0,2"
+          IsEnabled="False"
+          >
+          <ToolTip.Tip>※未実装：バックアップ</ToolTip.Tip>
           <SplitButton.Flyout>
             <ui:FAMenuFlyout>
               <!--  use the GroupName property to group radio items together  -->
@@ -94,8 +112,10 @@
           </StackPanel>
         </SplitButton>
 
-        <Button Margin="5,2,0,2">
-          <ToolTip.Tip>削除</ToolTip.Tip>
+        <Button Margin="5,2,0,2"
+          IsEnabled="False"
+          >
+          <ToolTip.Tip>※未実装：削除</ToolTip.Tip>
           <StackPanel Orientation="Horizontal">
             <ui:SymbolIcon
               Margin="0,0,5,0"

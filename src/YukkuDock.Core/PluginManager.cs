@@ -599,6 +599,11 @@ public static class PluginManager
 					Name = detailedPlugin.Name,
 					Author = detailedPlugin.Author,
 					Version = detailedPlugin.Version,
+					LastWriteTimeUtc = detailedPlugin.LastWriteTimeUtc,
+					IsEnabled = detailedPlugin.IsEnabled,
+					ProfileId = pluginPack.ProfileId,
+					FolderName = detailedPlugin.FolderName,
+					InstalledPath = detailedPlugin.InstalledPath,
 				};
 				progress?.Report(updatedPlugin);
 			}

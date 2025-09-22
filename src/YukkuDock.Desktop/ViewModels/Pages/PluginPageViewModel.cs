@@ -28,17 +28,18 @@ public class PluginPageViewModel
 
 	public FlatTreeDataGridSource<PluginPackViewModel>? PluginsSource { get; private set; }
 
-	public PluginPackViewModel? SelectedPlugin { get; set; }
+	public PluginPackViewModel[]? SelectedPlugin { get; set; }
 
 	public Command? OpenPluginFolderCommand { get; set; }
 	public Command? UpdatePluginsCommand { get; set; }
 
 	public bool CanOpenPluginFolder { get; set; }
+	public bool IsOpenAllPluginFolder { get; set; } = true;
 	public bool IsUpdatingPlugins { get; set; }
 
 	public int LoadPluginsPerFolder { get; set; } = 10;
 
-	ObservableCollection<PluginPackViewModel>? _plugins { get; set; } = [];
+	public ObservableCollection<PluginPackViewModel> Plugins { get; } = [];
 
 	// プロファイルごとにキャッシュ
 	static readonly Dictionary<string, ICollection<PluginPack>> ProfilePluginCache = [];
@@ -287,6 +288,17 @@ public class PluginPageViewModel
 			if (!PathManager.TryGetPluginFolder(ProfileVm.AppPath, out var folder))
 				return;
 
+			if(!IsOpenAllPluginFolder){
+				if(SelectedPlugin is null or [])
+					return;
+
+				var pluginFolder = Path.GetDirectoryName(SelectedPlugin[0].InstalledPath);
+				if (pluginFolder is null || !Directory.Exists(pluginFolder))
+					return;
+
+				folder = new DirectoryInfo(pluginFolder);
+			}
+
 			await PagePile
 				.RentAsync(
 					async (page) =>
@@ -381,12 +393,12 @@ public class PluginPageViewModel
 
 	[PropertyChanged(nameof(SelectedPlugin))]
 	[SuppressMessage("", "IDE0051")]
-	private ValueTask SelectedPluginChangedAsync(PluginPackViewModel? value)
+	private ValueTask SelectedPluginChangedAsync(PluginPackViewModel[]? value)
 	{
-		if (value is null)
+		if (value is null or [])
 			return default;
 
-		Debug.WriteLine($"Selected Plugin: {value.Name}, {value}");
+		Debug.WriteLine($"Selected Plugin: {value[0].Name}, {value[0]}");
 		return default;
 	}
 
@@ -416,5 +428,5 @@ public class PluginPageViewModel
 		}).ConfigureAwait(true);
 	}
 
-	public ObservableCollection<PluginPackViewModel> Plugins { get; } = [];
+
 }
