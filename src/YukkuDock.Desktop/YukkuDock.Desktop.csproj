@@ -15,28 +15,35 @@
     <SatelliteResourceLanguages>en-US;ja-JP</SatelliteResourceLanguages>
 
     <DebuggerSupport>false</DebuggerSupport>
-    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
-    <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
-    <EventSourceSupport>false</EventSourceSupport>
-    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
-    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
-    <StackTraceSupport>true</StackTraceSupport>
-    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+
     <OptimizationPreference>Speed</OptimizationPreference>
     <SelfContained>true</SelfContained>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <DebugSymbols>false</DebugSymbols>
-    <DebugType>none</DebugType>
-    <StripSymbols>true</StripSymbols>
+
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
+
+    <EventSourceSupport>false</EventSourceSupport>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <StackTraceSupport>true</StackTraceSupport>
+
     <IlcInstructionSet>native</IlcInstructionSet>
     <IlcMaxVectorTBitWidth>512</IlcMaxVectorTBitWidth>
     <WarningsAsErrors>false</WarningsAsErrors>
     <SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
-    <!--
-    <TrimMode>none</TrimMode>
 
+    <StripSymbols>true</StripSymbols>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+
+    <TrimMode>full</TrimMode>
     <TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>
+
+    <!--
+
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>none</DebugType>
 
 
 
