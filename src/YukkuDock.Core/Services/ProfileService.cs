@@ -74,7 +74,7 @@ public class ProfileService : IProfileService
 		return new(true, profiles);
 	}
 
-	public async Task<TryAsyncResult<bool>> TrySaveAsync(Profile profile)
+	public async Task<TryAsyncResult<Exception>> TrySaveAsync(Profile profile)
 	{
 		var folder = GetProfileFolder(profile.Id);
 		var profilePath = Path.Combine(folder, "profile.json");
@@ -84,28 +84,28 @@ public class ProfileService : IProfileService
 				Directory.CreateDirectory(folder);
 			var json = JsonSerializer.Serialize(profile, ProfileJsonContext.Default.Profile);
 			await File.WriteAllTextAsync(profilePath, json).ConfigureAwait(false);
-			return new(true, true);
+			return new(true, null);
 		}
-		catch
+		catch (Exception ex)
 		{
-			return new(false, false);
+			return new(false, ex);
 		}
 	}
 
-	public async Task<TryAsyncResult<bool>> TryDeleteAsync(Profile profile) {
+	public async Task<TryAsyncResult<Exception>> TryDeleteAsync(Profile profile) {
 		var folder = GetProfileFolder(profile.Id);
 		try
 		{
 			if (Directory.Exists(folder))
 			{
 				var result = await RecycleBinManager.TryMoveAsync(folder).ConfigureAwait(false);
-				return new(result.Success, result.Success);
+				return new(result.Success, null);
 			}
-			return new(false, false);
+			return new(false, null);
 		}
-		catch
+		catch (Exception ex)
 		{
-			return new(false, false);
+			return new(false, ex);
 		}
 	}
 }

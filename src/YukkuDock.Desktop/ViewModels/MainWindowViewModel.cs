@@ -242,83 +242,38 @@ public partial class MainWindowViewModel
 				return;
 			}
 
-			var profileId = SelectedItem.Profile.Id;
-			var profileFolder = profileService.GetProfileFolder(profileId);
-			var backupFolder = profileService.GetProfileBackupFolder(profileId);
+			var backupFolder = profileService
+				.GetProfileBackupFolder(SelectedItem.Profile.Id);
 
-			if (!Directory.Exists(backupFolder))
-			{
-				Directory.CreateDirectory(backupFolder);
-			}
 
-			var now = DateTime.Now;
-			var backupFileName = $"profile_{now:yyyyMMdd_HHmmss}.zip";
-			var backupFilePath = Path.Combine(backupFolder, backupFileName);
+			var result = await BackupManager.TryBackupAsync(
+				profileService,
+				SelectedItem.Profile
+			).ConfigureAwait(true);
 
-			// バックアップファイルの存在確認
-			if (File.Exists(backupFilePath))
-			{
-				// 既存ファイルが使用中の場合はエラー通知
-				try
-				{
-					File.Delete(backupFilePath);
-				}
-				catch (IOException)
-				{
-					// ユーザーに通知
-					var td = new TaskDialog
-					{
-						Title = "バックアップエラー",
-						IconSource = new SymbolIconSource { Symbol = Symbol.Important },
-						Header = "バックアップファイルが使用中です",
-						SubHeader =
-							$"バックアップファイル 「{backupFileName}」 が使用中です。閉じてから再度実行してください。",
-						ShowProgressBar = false,
-						Buttons = { TaskDialogButton.OKButton },
-					};
-
-					await MainWindowPile
-						.RentAsync(owner =>
-						{
-							td.XamlRoot = TopLevel.GetTopLevel(owner);
-							return default;
-						})
-						.ConfigureAwait(true);
-					await td.ShowAsync().ConfigureAwait(true);
-				}
-			}
-
-			var result = await profileService
-				.TrySaveAsync(SelectedItem.Profile)
-				.ConfigureAwait(true);
 			if (!result.Success)
 			{
-				return;
-			}
-
-			await Task.Run(() =>
+				// ユーザーに通知
+				var td = new TaskDialog
 				{
-					using var archive = ZipFile.Open(backupFilePath, ZipArchiveMode.Create);
+					Title = "バックアップエラー",
+					IconSource = new SymbolIconSource { Symbol = Symbol.Important },
+					Header = $"{result.Value?.Message}",
+					SubHeader =
+						$"バックアップファイルが作成できません。再度実行してください。\n {result.Value?.Message}",
+					ShowProgressBar = false,
+					Buttons = { TaskDialogButton.OKButton },
+				};
 
-					// GUID名のフォルダごと圧縮するため、ルートにGUIDフォルダを追加
-					void AddDirectory(string sourceDir, string baseDir, string guidFolderName)
+				await MainWindowPile
+					.RentAsync(owner =>
 					{
-						foreach (var file in Directory.EnumerateFiles(sourceDir))
-						{
-							// entryName: GUID/xxx/yyy
-							var entryName = Path.Combine(guidFolderName, Path.GetRelativePath(baseDir, file));
-							archive.CreateEntryFromFile(file, entryName, CompressionLevel.Fastest);
-						}
-						foreach (var dir in Directory.EnumerateDirectories(sourceDir))
-						{
-							AddDirectory(dir, baseDir, guidFolderName);
-						}
-					}
-
-					// GUID名のフォルダで圧縮
-					AddDirectory(profileFolder, profileFolder, profileId.ToString());
-				})
-				.ConfigureAwait(true);
+						td.XamlRoot = TopLevel.GetTopLevel(owner);
+						return default;
+					})
+					.ConfigureAwait(true);
+				await td.ShowAsync().ConfigureAwait(true);
+			}
 
 			await MainWindowPile
 				.RentAsync(
