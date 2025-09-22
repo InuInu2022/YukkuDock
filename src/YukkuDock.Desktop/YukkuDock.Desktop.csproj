@@ -21,13 +21,11 @@
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="Epoxy.Avalonia11" Version="1.16.0" />
     <PackageReference Include="FluentAvaloniaUI" Version="2.4.0" />
     <PackageReference Include="HotAvalonia" Version="3.0.0" PrivateAssets="All" Publish="True" />
     <PackageReference Include="Jab" Version="0.12.0" />
     <PackageReference Include="Projektanker.Icons.Avalonia.FontAwesome" Version="9.6.2" />
-    <PackageReference Include="SimpleShimmer.Avalonia" Version="1.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\YukkuDock.Core\YukkuDock.Core.csproj" />
