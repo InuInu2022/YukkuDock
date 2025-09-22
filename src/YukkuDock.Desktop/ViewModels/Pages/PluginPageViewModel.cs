@@ -144,7 +144,10 @@ public class PluginPageViewModel
 		{
 			Columns =
 			{
-				new TemplateColumn<PluginPackViewModel>("有効", IsEnabledTemplate),
+				new TemplateColumn<PluginPackViewModel>("有効", IsEnabledTemplate, options:new(){
+					CompareAscending = static (x, y) => x?.IsEnabled.CompareTo(y?.IsEnabled) ?? 0,
+					CompareDescending = static (x, y) => y?.IsEnabled.CompareTo(x?.IsEnabled) ?? 0,
+				} ),
 				new TextColumn<PluginPackViewModel, string>("フォルダ", x => x.FolderName),
 				new TextColumn<PluginPackViewModel, string>("プラグイン名", x => x.Name),
 				new TextColumn<PluginPackViewModel, string>("バージョン", static x => x.Version != null ? x.Version.ToString() : "?"),

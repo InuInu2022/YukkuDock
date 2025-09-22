@@ -1,12 +1,12 @@
 using System.Collections.Concurrent;
 using System.Collections.Frozen;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using YukkuDock.Core.Models;
 using YukkuDock.Core.Services;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
 
 namespace YukkuDock.Core;
 
@@ -42,7 +42,7 @@ public static class PluginManager
 	/// <param name="enable"></param>
 	/// <param name="cancellationToken"></param>
 	/// <returns></returns>
-	public static async ValueTask<TryAsyncResult<Exception>> TryChangeStatusPluginAsync(
+	public static async ValueTask<TryAsyncResult<bool>> TryChangeStatusPluginAsync(
 		PluginPack plugin,
 		bool enable,
 		CancellationToken cancellationToken = default
@@ -55,35 +55,98 @@ public static class PluginManager
 			{
 				return new(
 					false,
+					false,
 					new FileNotFoundException("Plugin file not found.", plugin.InstalledPath)
 				);
 			}
 
-			var targetPath = enable
-				? pluginFile.FullName.Replace(".dll.disabled", ".dll", StringComparison.Ordinal)
-				: pluginFile.FullName + ".disabled";
+			var fileName = pluginFile.Name;
+			var isDll =
+				fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+				|| fileName.EndsWith(".dll.disabled", StringComparison.OrdinalIgnoreCase)
+				|| fileName.EndsWith(".dll.disabled.disabled", StringComparison.OrdinalIgnoreCase);
+			if (!isDll)
+			{
+				return new(false, false);
+			}
+
+			// ".dll.disabled.disabled"は即座に".dll.disabled"へ修正
+			if (pluginFile.FullName.EndsWith(".dll.disabled.disabled", StringComparison.Ordinal))
+			{
+				var correctedPath = pluginFile.FullName.Replace(
+					".dll.disabled.disabled",
+					".dll.disabled",
+					StringComparison.Ordinal
+				);
+				if (!File.Exists(correctedPath))
+				{
+					pluginFile.MoveTo(correctedPath);
+				}
+				pluginFile = new FileInfo(correctedPath);
+			}
+
+			string targetPath;
+			if (enable)
+			{
+				// 有効化時はどちらも ".dll" に戻す
+				if (
+					pluginFile.FullName.EndsWith(".dll.disabled", StringComparison.Ordinal)
+					|| pluginFile.FullName.EndsWith(
+						".dll.disabled.disabled",
+						StringComparison.Ordinal
+					)
+				)
+				{
+					targetPath = pluginFile
+						.FullName.Replace(
+							".dll.disabled.disabled",
+							".dll",
+							StringComparison.Ordinal
+						)
+						.Replace(".dll.disabled", ".dll", StringComparison.Ordinal);
+				}
+				else
+				{
+					targetPath = pluginFile.FullName;
+				}
+			}
+			else
+			{
+				// 無効化時は ".dll.disabled" で終わっていれば何もしない
+				if (pluginFile.FullName.EndsWith(".dll.disabled", StringComparison.Ordinal))
+				{
+					targetPath = pluginFile.FullName;
+				}
+				else if (
+					pluginFile.FullName.EndsWith(".dll.disabled.disabled", StringComparison.Ordinal)
+				)
+				{
+					// 既に修正済みなので何もしない
+					targetPath = pluginFile.FullName.Replace(
+						".dll.disabled.disabled",
+						".dll.disabled",
+						StringComparison.Ordinal
+					);
+				}
+				else
+				{
+					targetPath = pluginFile.FullName + ".disabled";
+				}
+			}
 
 			if (string.Equals(pluginFile.FullName, targetPath, StringComparison.Ordinal))
 			{
-				// すでに目的の状態
-				// 変更前のファイルと2つあるなら削除
-				if (File.Exists(targetPath) && !string.Equals(pluginFile.FullName, targetPath, StringComparison.Ordinal))
-				{
-					pluginFile.Delete();
-				}
-				return new(true, null);
+				return new(true, true);
 			}
-
 
 			await Task.Run(() => pluginFile.MoveTo(targetPath), cancellationToken)
 				.ConfigureAwait(false);
 
-
-			return new(true, null);
+			return new(true, true);
 		}
 		catch (Exception ex)
 		{
-			return new(false, ex);
+			return new(false, false, ex);
 		}
 	}
 
@@ -208,7 +271,11 @@ public static class PluginManager
 					{
 						var dllFile = new FileInfo(basicPlugin.InstalledPath);
 
-						var detailedPlugin = LoadPluginDetailSync(dllFile, detailPluginContext, cancellationToken);
+						var detailedPlugin = LoadPluginDetailSync(
+							dllFile,
+							detailPluginContext,
+							cancellationToken
+						);
 
 						if (detailedPlugin is not null)
 						{
@@ -218,13 +285,11 @@ public static class PluginManager
 						else
 						{
 							// 読み込み失敗時は何もしない
-
 						}
 					}
 					catch
 					{
 						// エラー時は何もしない
-
 					}
 				}
 			},
@@ -239,9 +304,12 @@ public static class PluginManager
 	/// </summary>
 	static PluginPack CreateBasicPluginPack(FileInfo dllFile)
 	{
-		// ファイル名から有効/無効を判定
-		var isEnabled = dllFile.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
-			&& !dllFile.Name.EndsWith(".dll.disabled", StringComparison.OrdinalIgnoreCase);
+		// 厳密な有効/無効判定
+		var fileName = dllFile.Name;
+		var isEnabled =
+			fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+			&& !fileName.EndsWith(".dll.disabled", StringComparison.OrdinalIgnoreCase)
+			&& !fileName.EndsWith(".dll.disabled.disabled", StringComparison.OrdinalIgnoreCase);
 
 		return new PluginPack
 		{
@@ -630,9 +698,7 @@ public static class PluginManager
 					return CreateBasicPluginPack(new FileInfo(dllFullName));
 				}
 			}
-			catch
-			{
-			}
+			catch { }
 
 			return null;
 		}
@@ -697,14 +763,17 @@ public static class PluginManager
 		catch (Exception ex)
 		{
 			// 型取得での例外を詳細ログ出力
-			Debug.WriteLine($"HasPluginInterface例外: {assembly.GetName().Name} - {ex.GetType().Name}: {ex.Message}");
+			Debug.WriteLine(
+				$"HasPluginInterface例外: {assembly.GetName().Name} - {ex.GetType().Name}: {ex.Message}"
+			);
 			return false;
 		}
 	}
 
 	// 型のコレクションからプラグインインターフェースを検索（再利用可能）
-	[RequiresUnreferencedCode("Calls YukkuDock.Core.PluginManager.HasYukkuriMovieMakerInterface(Type)")]
-
+	[RequiresUnreferencedCode(
+		"Calls YukkuDock.Core.PluginManager.HasYukkuriMovieMakerInterface(Type)"
+	)]
 	static bool HasPluginInterfaceFromTypes(IEnumerable<Type> types)
 	{
 		try
@@ -715,8 +784,10 @@ public static class PluginManager
 					continue;
 
 				// IPluginインターフェースチェック
-				if (type.GetInterfaces()
-					.Any(i => string.Equals(i.Name, "IPlugin", StringComparison.Ordinal)))
+				if (
+					type.GetInterfaces()
+						.Any(i => string.Equals(i.Name, "IPlugin", StringComparison.Ordinal))
+				)
 				{
 					return true;
 				}
@@ -907,7 +978,11 @@ public static class PluginManager
 
 		Assembly? OnResolving(AssemblyLoadContext context, AssemblyName assemblyName)
 		{
-			if (_disposed || assemblyName.Name is null || PluginManager.IsExcludedDll(assemblyName.Name))
+			if (
+				_disposed
+				|| assemblyName.Name is null
+				|| PluginManager.IsExcludedDll(assemblyName.Name)
+			)
 				return null;
 
 			if (_loadedAssemblies.TryGetValue(assemblyName.Name, out var loadedAssembly))
@@ -915,7 +990,10 @@ public static class PluginManager
 
 			lock (_syncLock)
 			{
-				if (_disposed || _loadedAssemblies.TryGetValue(assemblyName.Name, out loadedAssembly))
+				if (
+					_disposed
+					|| _loadedAssemblies.TryGetValue(assemblyName.Name, out loadedAssembly)
+				)
 					return loadedAssembly;
 
 				var assemblyPath = Path.Combine(_appDir, $"{assemblyName.Name}.dll");
