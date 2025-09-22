@@ -54,7 +54,7 @@ public class PluginPackViewModel
 		var result = await PluginManager.TryChangeStatusPluginAsync(_pack, value)
 			.ConfigureAwait(true);
 		if (!result.Success) {
-			Debug.WriteLine(result.Value?.Message);
+			Debug.WriteLine(result.Exception?.Message);
 		}
 	}
 }
