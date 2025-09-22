@@ -134,18 +134,22 @@ public class PluginPageViewModel
 	{
 		var source = pluginPacks ?? ProfileVm?.PluginPacks;
 		var list = source?.Select(p => new PluginPackViewModel(p)) ?? [];
-		_plugins = new ObservableCollection<PluginPackViewModel>(list);
+		Plugins.Clear();
+		foreach (var vm in list)
+		{
+			Plugins.Add(vm);
+		}
 
-		PluginsSource = new FlatTreeDataGridSource<PluginPackViewModel>(_plugins)
+		PluginsSource = new FlatTreeDataGridSource<PluginPackViewModel>(Plugins)
 		{
 			Columns =
 			{
 				new TemplateColumn<PluginPackViewModel>("有効", IsEnabledTemplate),
 				new TextColumn<PluginPackViewModel, string>("フォルダ", x => x.FolderName),
 				new TextColumn<PluginPackViewModel, string>("プラグイン名", x => x.Name),
-				new TextColumn<PluginPackViewModel, string>("バージョン", x => x.Version),
+				new TextColumn<PluginPackViewModel, string>("バージョン", static x => x.Version != null ? x.Version.ToString() : "?"),
 				new TextColumn<PluginPackViewModel, string>("作者", x => x.Author),
-				new TextColumn<PluginPackViewModel, string>("最終更新日時", x => x.LastWriteTimeUtc),
+				new TextColumn<PluginPackViewModel, string>("最終更新日時", x => x.LastWriteTimeText),
 			},
 		};
 	}
@@ -196,58 +200,17 @@ public class PluginPageViewModel
 			await UIThread
 				.InvokeAsync(() =>
 				{
-					_plugins?.Clear();
+					Plugins.Clear();
 					ProfileVm.PluginPacks.Clear();
 					return default;
 				})
 				.ConfigureAwait(false);
-
-			// 段階的ロード用のProgress
-			var progress = new Progress<PluginPack>(async plugin =>
-			{
-				try
-				{
-					// UIスレッドでコレクション更新
-					await UIThread
-						.InvokeAsync(() =>
-						{
-							// 既存アイテムを検索
-							var existingVm = _plugins?.FirstOrDefault(p =>
-								string.Equals(
-									p.InstalledPath,
-									plugin.InstalledPath,
-									StringComparison.Ordinal
-								)
-							);
-
-							if (existingVm is not null)
-							{
-								// 詳細情報が来たらプロパティ更新
-								existingVm.Name = plugin.Name;
-								existingVm.Author = plugin.Author;
-								existingVm.Version = plugin.Version?.ToString() ?? string.Empty;
-								// 必要なら他のプロパティも
-							}
-							else
-							{
-								// 新規追加
-								_plugins?.Add(new PluginPackViewModel(plugin));
-							}
-
-							return ValueTask.CompletedTask;
-						})
-						.ConfigureAwait(true);
-				}
-				catch (System.Exception ex)
-				{
-					// エラーハンドリング
-					Debug.WriteLine(ex.Message);
-				}
-			});
+			Progress<PluginPack> progress = CreateProgressForPluginUpdate();
 
 			// 段階的ロード実行
+			var profileId = ProfileVm.Profile.Id;
 			var pluginPacks = await PluginManager
-				.LoadPluginsProgressivelyAsync(appPath, folder, LoadPluginsPerFolder, progress)
+				.LoadPluginsProgressivelyAsync(appPath, folder, profileId, LoadPluginsPerFolder, progress)
 				.ConfigureAwait(false);
 
 			// キャッシュ・ProfileVmへ反映
@@ -275,6 +238,40 @@ public class PluginPageViewModel
 
 		sw.Stop();
 		Debug.WriteLine($"Progressive plugin update completed in {sw.ElapsedMilliseconds} ms");
+	}
+
+	private Progress<PluginPack> CreateProgressForPluginUpdate()
+	{
+		var progress = new Progress<PluginPack>(plugin =>
+		{
+			var valueTask = UIThread.InvokeAsync(() =>
+			{
+				var existingVm = Plugins.FirstOrDefault(p =>
+					string.Equals(p.InstalledPath, plugin.InstalledPath, StringComparison.Ordinal)
+				);
+
+				if (existingVm is not null)
+				{
+					existingVm.UpdateFromPluginPack(plugin);
+				}
+				else
+				{
+					Plugins.Add(new PluginPackViewModel(plugin));
+				}
+
+				return ValueTask.CompletedTask;
+			});
+
+			if (valueTask.IsCompletedSuccessfully)
+			{
+				valueTask.GetAwaiter().GetResult();
+			}
+			else if (valueTask.IsFaulted)
+			{
+				Debug.WriteLine("UIThread.InvokeAsyncで例外が発生しました");
+			}
+		});
+		return progress;
 	}
 
 	void SetCommands()
@@ -415,4 +412,6 @@ public class PluginPageViewModel
 			return ValueTask.CompletedTask;
 		}).ConfigureAwait(true);
 	}
+
+	public ObservableCollection<PluginPackViewModel> Plugins { get; } = [];
 }

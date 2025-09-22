@@ -4,6 +4,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.Loader;
 using YukkuDock.Core.Models;
+using YukkuDock.Core.Services;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace YukkuDock.Core;
 
@@ -17,6 +20,8 @@ public static class PluginManager
 		"interactivity",
 		"wpfgfx",
 		"presentation",
+		"presentationframework",
+		"presentationcore",
 		"windows",
 		"windowsbase",
 		"epoxy",
@@ -29,6 +34,58 @@ public static class PluginManager
 		"winrt.",
 		".winmd",
 	}.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+
+	/// <summary>
+	/// プラグインの有効/無効を切り替える。失敗時はSuccess=false。
+	/// </summary>
+	/// <param name="plugin"></param>
+	/// <param name="enable"></param>
+	/// <param name="cancellationToken"></param>
+	/// <returns></returns>
+	public static async ValueTask<TryAsyncResult<Exception>> TryChangeStatusPluginAsync(
+		PluginPack plugin,
+		bool enable,
+		CancellationToken cancellationToken = default
+	)
+	{
+		try
+		{
+			var pluginFile = new FileInfo(plugin.InstalledPath);
+			if (!pluginFile.Exists)
+			{
+				return new(
+					false,
+					new FileNotFoundException("Plugin file not found.", plugin.InstalledPath)
+				);
+			}
+
+			var targetPath = enable
+				? pluginFile.FullName.Replace(".dll.disabled", ".dll", StringComparison.Ordinal)
+				: pluginFile.FullName + ".disabled";
+
+			if (string.Equals(pluginFile.FullName, targetPath, StringComparison.Ordinal))
+			{
+				// すでに目的の状態
+				// 変更前のファイルと2つあるなら削除
+				if (File.Exists(targetPath) && !string.Equals(pluginFile.FullName, targetPath, StringComparison.Ordinal))
+				{
+					pluginFile.Delete();
+				}
+				return new(true, null);
+			}
+
+
+			await Task.Run(() => pluginFile.MoveTo(targetPath), cancellationToken)
+				.ConfigureAwait(false);
+
+
+			return new(true, null);
+		}
+		catch (Exception ex)
+		{
+			return new(false, ex);
+		}
+	}
 
 	[RequiresUnreferencedCode(
 		"Plugin loading uses reflection and AssemblyLoadContext, which is unsafe for trimming."
@@ -96,9 +153,13 @@ public static class PluginManager
 	/// <summary>
 	/// プラグイン情報を段階的にロードする（基本情報→詳細情報）
 	/// </summary>
+	[RequiresUnreferencedCode(
+		"Calls YukkuDock.Core.PluginManager.LoadPluginDetailAsync(FileInfo, PluginLoadContext, CancellationToken)"
+	)]
 	public static async ValueTask<ICollection<PluginPack>> LoadPluginsProgressivelyAsync(
 		string appPath,
 		DirectoryInfo folder,
+		Guid profileId,
 		int maxPluginsPerFolder,
 		IProgress<PluginPack>? progress = null,
 		CancellationToken cancellationToken = default
@@ -108,7 +169,7 @@ public static class PluginManager
 		var appDir = Path.GetDirectoryName(appPath)!;
 		var pluginPacks = new ConcurrentBag<PluginPack>();
 
-		using var pluginContext = new PluginLoadContext(appDir);
+		var basicPlugins = new List<PluginPack>();
 
 		foreach (var dir in pluginDirs)
 		{
@@ -116,9 +177,7 @@ public static class PluginManager
 				break;
 
 			var candidates = await GetPluginCandidatesAsync(dir).ConfigureAwait(false);
-			var limitedCandidates = candidates.Take(maxPluginsPerFolder);
-
-			foreach (var dllFile in limitedCandidates)
+			foreach (var dllFile in candidates.Take(maxPluginsPerFolder))
 			{
 				if (cancellationToken.IsCancellationRequested)
 					break;
@@ -126,25 +185,51 @@ public static class PluginManager
 				if (!dllFile.Exists)
 					continue;
 
-				// 段階1: 基本情報のみで即座に表示
 				var basicPlugin = CreateBasicPluginPack(dllFile);
+				basicPlugin.ProfileId = profileId;
 				pluginPacks.Add(basicPlugin);
+				basicPlugins.Add(basicPlugin);
+
 				progress?.Report(basicPlugin);
-
-				// 段階2: 詳細情報も逐次awaitで取得
-				var detailedPlugin = await LoadPluginDetailAsync(
-						dllFile,
-						pluginContext,
-						cancellationToken
-					)
-					.ConfigureAwait(false);
-
-				if (detailedPlugin is not null)
-				{
-					progress?.Report(detailedPlugin);
-				}
 			}
 		}
+
+		_ = Task.Run(
+			async () =>
+			{
+				using var detailPluginContext = new PluginLoadContext(appDir);
+
+				foreach (ref var basicPlugin in CollectionsMarshal.AsSpan(basicPlugins))
+				{
+					if (cancellationToken.IsCancellationRequested)
+						break;
+
+					try
+					{
+						var dllFile = new FileInfo(basicPlugin.InstalledPath);
+
+						var detailedPlugin = LoadPluginDetailSync(dllFile, detailPluginContext, cancellationToken);
+
+						if (detailedPlugin is not null)
+						{
+							detailedPlugin.ProfileId = profileId;
+							progress?.Report(detailedPlugin);
+						}
+						else
+						{
+							// 読み込み失敗時は何もしない
+
+						}
+					}
+					catch
+					{
+						// エラー時は何もしない
+
+					}
+				}
+			},
+			cancellationToken
+		);
 
 		return [.. pluginPacks];
 	}
@@ -154,6 +239,10 @@ public static class PluginManager
 	/// </summary>
 	static PluginPack CreateBasicPluginPack(FileInfo dllFile)
 	{
+		// ファイル名から有効/無効を判定
+		var isEnabled = dllFile.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+			&& !dllFile.Name.EndsWith(".dll.disabled", StringComparison.OrdinalIgnoreCase);
+
 		return new PluginPack
 		{
 			Name = dllFile.Name,
@@ -162,15 +251,16 @@ public static class PluginManager
 			InstalledPath = dllFile.FullName,
 			FolderName = Path.GetFileName(Path.GetDirectoryName(dllFile.FullName) ?? string.Empty),
 			LastWriteTimeUtc = dllFile.LastWriteTimeUtc,
-			IsEnabled = true,
+			IsEnabled = isEnabled,
 		};
 	}
 
 	/// <summary>
 	/// プラグインの詳細情報を非同期で取得
 	/// </summary>
-	[RequiresUnreferencedCode("Calls YukkuDock.Core.PluginManager.TryLoadPlugin(String, String, PluginLoadContext)")]
-
+	[RequiresUnreferencedCode(
+		"Calls YukkuDock.Core.PluginManager.TryLoadPlugin(String, String, PluginLoadContext)"
+	)]
 	static async ValueTask<PluginPack?> LoadPluginDetailAsync(
 		FileInfo dllFile,
 		PluginLoadContext pluginContext,
@@ -180,6 +270,41 @@ public static class PluginManager
 		try
 		{
 			if (!await IsDotNetAssemblyByHeaderAsync(dllFile.FullName).ConfigureAwait(false))
+				return null;
+
+			if (IsExcludedDll(dllFile.Name))
+				return null;
+
+			var pluginDir = Path.GetDirectoryName(dllFile.FullName);
+			if (pluginDir is null)
+				return null;
+
+			var plugin = TryLoadPlugin(dllFile.FullName, pluginDir, pluginContext);
+			return plugin;
+		}
+		catch
+		{
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// プラグインの詳細情報を同期で取得（並行処理での安全性確保）
+	/// </summary>
+	[RequiresUnreferencedCode(
+		"Calls YukkuDock.Core.PluginManager.TryLoadPlugin(String, String, PluginLoadContext)"
+	)]
+	static PluginPack? LoadPluginDetailSync(
+		FileInfo dllFile,
+		PluginLoadContext pluginContext,
+		CancellationToken ct
+	)
+	{
+		try
+		{
+			ct.ThrowIfCancellationRequested();
+
+			if (!IsDotNetAssemblyByHeaderSync(dllFile.FullName))
 				return null;
 
 			if (IsExcludedDll(dllFile.Name))
@@ -306,11 +431,23 @@ public static class PluginManager
 	static async ValueTask<IReadOnlyList<FileInfo>> GetPluginCandidatesAsync(DirectoryInfo dir)
 	{
 		var primaryDllPath = Path.Combine(dir.FullName, $"{dir.Name}.dll");
+		var primaryDllDisabledPath = Path.Combine(dir.FullName, $"{dir.Name}.dll.disabled");
+
+		var result = new List<FileInfo>();
 
 		if (await FileExistsAsync(primaryDllPath).ConfigureAwait(false))
-			return [new FileInfo(primaryDllPath)];
+			result.Add(new FileInfo(primaryDllPath));
+		if (await FileExistsAsync(primaryDllDisabledPath).ConfigureAwait(false))
+			result.Add(new FileInfo(primaryDllDisabledPath));
 
-		var topDlls = await Task.Run(() => dir.GetFiles("*.dll", SearchOption.TopDirectoryOnly))
+		if (result.Count > 0)
+			return result;
+
+		var topDlls = await Task.Run(
+				() =>
+					dir.GetFiles("*.dll", SearchOption.TopDirectoryOnly)
+						.Concat(dir.GetFiles("*.dll.disabled", SearchOption.TopDirectoryOnly))
+			)
 			.ConfigureAwait(false);
 
 		// 除外パターンでフィルタリング
@@ -318,7 +455,11 @@ public static class PluginManager
 		if (filteredTopDlls is not [])
 			return filteredTopDlls;
 
-		var allDlls = await Task.Run(() => dir.GetFiles("*.dll", SearchOption.AllDirectories))
+		var allDlls = await Task.Run(
+				() =>
+					dir.GetFiles("*.dll", SearchOption.AllDirectories)
+						.Concat(dir.GetFiles("*.dll.disabled", SearchOption.AllDirectories))
+			)
 			.ConfigureAwait(false);
 
 		return [.. allDlls.Where(f => !IsExcludedDll(f.Name))];
@@ -422,16 +563,18 @@ public static class PluginManager
 		{
 			var assembly = pluginContext.LoadPluginAssembly(dllFullName, pluginDir);
 			if (assembly is null)
+			{
 				return null;
+			}
 
 			if (!HasPluginInterface(assembly))
+			{
 				return null;
+			}
 
 			var (name, version) = GetAssemblyInfo(assembly, dllFullName);
-
 			var lastWriteTimeUtc = File.GetLastWriteTimeUtc(dllFullName);
 
-			// PluginDetailsAttributeのAuthorNameを優先して取得
 			string? author = null;
 			var attr = assembly.GetCustomAttributes();
 			var detailsAttr = attr.FirstOrDefault(attr =>
@@ -453,8 +596,11 @@ public static class PluginManager
 				}
 			}
 
-			// フォールバック: 標準属性
 			author ??= assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? "?";
+
+			var isEnabled =
+				dllFullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+				&& !dllFullName.EndsWith(".dll.disabled", StringComparison.OrdinalIgnoreCase);
 
 			return new PluginPack
 			{
@@ -464,7 +610,35 @@ public static class PluginManager
 				InstalledPath = dllFullName,
 				FolderName = Path.GetFileName(Path.GetDirectoryName(dllFullName) ?? string.Empty),
 				LastWriteTimeUtc = lastWriteTimeUtc,
+				IsEnabled = isEnabled,
 			};
+		}
+		catch (BadImageFormatException)
+		{
+			return null;
+		}
+		catch (FileLoadException)
+		{
+			return null;
+		}
+		catch (ReflectionTypeLoadException ex)
+		{
+			try
+			{
+				if (HasPluginInterfaceFromTypes(ex.Types.Where(t => t is not null).OfType<Type>()))
+				{
+					return CreateBasicPluginPack(new FileInfo(dllFullName));
+				}
+			}
+			catch
+			{
+			}
+
+			return null;
+		}
+		catch (InvalidOperationException)
+		{
+			return null;
 		}
 		catch
 		{
@@ -518,27 +692,42 @@ public static class PluginManager
 		try
 		{
 			var types = SafeGetTypes(assembly);
+			return HasPluginInterfaceFromTypes(types);
+		}
+		catch (Exception ex)
+		{
+			// 型取得での例外を詳細ログ出力
+			Debug.WriteLine($"HasPluginInterface例外: {assembly.GetName().Name} - {ex.GetType().Name}: {ex.Message}");
+			return false;
+		}
+	}
+
+	// 型のコレクションからプラグインインターフェースを検索（再利用可能）
+	static bool HasPluginInterfaceFromTypes(IEnumerable<Type> types)
+	{
+		try
+		{
 			foreach (var type in types)
 			{
 				if (!type.IsClass || type.IsAbstract)
 					continue;
 
-				if (
-					type.GetInterfaces()
-						.Any(i => string.Equals(i.Name, "IPlugin", StringComparison.Ordinal))
-				)
+				// IPluginインターフェースチェック
+				if (type.GetInterfaces()
+					.Any(i => string.Equals(i.Name, "IPlugin", StringComparison.Ordinal)))
 				{
 					return true;
 				}
 
+				// YukkuriMovieMakerインターフェースチェック
 				if (HasYukkuriMovieMakerInterface(type))
 					return true;
 			}
 			return false;
 		}
-		catch
+		catch (Exception ex)
 		{
-			// すべての例外を無視
+			Debug.WriteLine($"HasPluginInterfaceFromTypes例外: {ex.GetType().Name}: {ex.Message}");
 			return false;
 		}
 	}
@@ -571,6 +760,7 @@ public static class PluginManager
 		}
 		catch (ReflectionTypeLoadException ex)
 		{
+			// 部分的に読み込める型を返す
 			return ex.Types.Where(t => t is not null).OfType<Type>();
 		}
 		catch
@@ -631,6 +821,58 @@ public static class PluginManager
 		}
 	}
 
+	/// <summary>
+	/// 同期版.NETアセンブリヘッダーチェック（並行処理での安全性確保）
+	/// </summary>
+	static bool IsDotNetAssemblyByHeaderSync(string dllPath)
+	{
+		try
+		{
+			using var fs = new FileStream(
+				dllPath,
+				FileMode.Open,
+				FileAccess.Read,
+				FileShare.ReadWrite,
+				bufferSize: 4096
+			);
+			using var br = new BinaryReader(fs);
+
+			// MZヘッダ判定
+			if (br.ReadUInt16() != 0x5A4D)
+				return false;
+
+			fs.Seek(0x3C, SeekOrigin.Begin);
+			var peHeaderOffset = br.ReadInt32();
+
+			if (peHeaderOffset <= 0 || peHeaderOffset >= fs.Length)
+				return false;
+
+			fs.Seek(peHeaderOffset, SeekOrigin.Begin);
+			if (br.ReadUInt32() != 0x00004550)
+				return false;
+
+			fs.Seek(20, SeekOrigin.Current);
+			var magic = br.ReadUInt16();
+
+			if (magic != 0x10B && magic != 0x20B)
+				return false;
+
+			var optionalHeaderSize = magic == 0x20B ? 222 : 206;
+
+			if (fs.Position + optionalHeaderSize >= fs.Length)
+				return false;
+
+			fs.Seek(optionalHeaderSize, SeekOrigin.Current);
+			var clrHeaderRva = br.ReadUInt32();
+
+			return clrHeaderRva != 0;
+		}
+		catch
+		{
+			return false;
+		}
+	}
+
 	static async ValueTask<bool> FileExistsAsync(string path)
 	{
 		// ファイルの存在確認は非同期I/O操作として適切
@@ -650,7 +892,9 @@ public static class PluginManager
 		readonly ConcurrentDictionary<string, Assembly> _loadedAssemblies = new(
 			StringComparer.Ordinal
 		);
+		readonly SemaphoreSlim _loadSemaphore = new(1, 1);
 		readonly object _syncLock = new();
+		volatile bool _disposed;
 
 		public PluginLoadContext(string appDir)
 		{
@@ -659,121 +903,104 @@ public static class PluginManager
 			_loadContext.Resolving += OnResolving;
 		}
 
-		[RequiresUnreferencedCode(
-			"Plugin loading uses reflection and AssemblyLoadContext, which is unsafe for trimming."
-		)]
 		Assembly? OnResolving(AssemblyLoadContext context, AssemblyName assemblyName)
 		{
-			if (assemblyName.Name is null || PluginManager.IsExcludedDll(assemblyName.Name))
+			if (_disposed || assemblyName.Name is null || PluginManager.IsExcludedDll(assemblyName.Name))
 				return null;
 
-			// すでにロード済みのアセンブリを返す
 			if (_loadedAssemblies.TryGetValue(assemblyName.Name, out var loadedAssembly))
 				return loadedAssembly;
 
-			// アプリディレクトリから読み込み試行
-			var assemblyPath = Path.Combine(_appDir, $"{assemblyName.Name}.dll");
-			if (File.Exists(assemblyPath) && IsDotNetAssemblyByHeader(assemblyPath))
+			lock (_syncLock)
 			{
-				try
-				{
-					var assembly = _loadContext.LoadFromAssemblyPath(assemblyPath);
-					_loadedAssemblies.TryAdd(assemblyName.Name, assembly);
-					return assembly;
-				}
-				catch
-				{
-					// 読み込み失敗時は無視
-				}
-			}
+				if (_disposed || _loadedAssemblies.TryGetValue(assemblyName.Name, out loadedAssembly))
+					return loadedAssembly;
 
-			return null;
+				var assemblyPath = Path.Combine(_appDir, $"{assemblyName.Name}.dll");
+				if (File.Exists(assemblyPath) && IsDotNetAssemblyByHeaderSync(assemblyPath))
+				{
+					try
+					{
+						var assembly = _loadContext.LoadFromAssemblyPath(assemblyPath);
+						_loadedAssemblies.TryAdd(assemblyName.Name, assembly);
+						return assembly;
+					}
+					catch
+					{
+						//
+					}
+				}
+
+				return null;
+			}
 		}
 
-		[RequiresUnreferencedCode(
-			"Plugin loading uses reflection and AssemblyLoadContext, which is unsafe for trimming."
-		)]
 		public Assembly? LoadPluginAssembly(string dllPath, string pluginDir)
 		{
+			if (_disposed)
+			{
+				return null;
+			}
+
 			try
 			{
 				var assemblyName = Path.GetFileNameWithoutExtension(dllPath);
 
-				// 同じアセンブリが既にロードされていたら再利用
 				if (_loadedAssemblies.TryGetValue(assemblyName, out var existingAssembly))
-					return existingAssembly;
-
-				// 並列アクセスによる重複ロードを防止
-				lock (_syncLock)
 				{
-					if (_loadedAssemblies.TryGetValue(assemblyName, out existingAssembly))
-						return existingAssembly;
+					return existingAssembly;
+				}
 
-					// 新規アセンブリをロード
+				_loadSemaphore.Wait();
+				try
+				{
+					if (_disposed)
+					{
+						return null;
+					}
+
+					if (_loadedAssemblies.TryGetValue(assemblyName, out existingAssembly))
+					{
+						return existingAssembly;
+					}
+
 					var assembly = _loadContext.LoadFromAssemblyPath(dllPath);
 					_loadedAssemblies.TryAdd(assemblyName, assembly);
+
 					return assembly;
 				}
+				finally
+				{
+					if (!_disposed)
+						_loadSemaphore.Release();
+				}
+			}
+			catch (ObjectDisposedException)
+			{
+				return null;
 			}
 			catch
 			{
 				return null;
-			}
-		}
-
-		// 同期版のIsDotNetAssemblyByHeaderを追加（コールバックでの利用に適切）
-		static bool IsDotNetAssemblyByHeader(string dllPath)
-		{
-			try
-			{
-				using var fs = new FileStream(
-					dllPath,
-					FileMode.Open,
-					FileAccess.Read,
-					FileShare.ReadWrite,
-					bufferSize: 4096
-				);
-				using var br = new BinaryReader(fs);
-
-				if (br.ReadUInt16() != 0x5A4D)
-					return false;
-
-				fs.Seek(0x3C, SeekOrigin.Begin);
-				var peHeaderOffset = br.ReadInt32();
-
-				if (peHeaderOffset <= 0 || peHeaderOffset >= fs.Length)
-					return false;
-
-				fs.Seek(peHeaderOffset, SeekOrigin.Begin);
-				if (br.ReadUInt32() != 0x00004550)
-					return false;
-
-				fs.Seek(20, SeekOrigin.Current);
-				var magic = br.ReadUInt16();
-
-				if (magic != 0x10B && magic != 0x20B)
-					return false;
-
-				var optionalHeaderSize = magic == 0x20B ? 222 : 206;
-
-				if (fs.Position + optionalHeaderSize >= fs.Length)
-					return false;
-
-				fs.Seek(optionalHeaderSize, SeekOrigin.Current);
-				var clrHeaderRva = br.ReadUInt32();
-
-				return clrHeaderRva != 0;
-			}
-			catch
-			{
-				return false;
 			}
 		}
 
 		public void Dispose()
 		{
+			if (_disposed)
+				return;
+
+			lock (_syncLock)
+			{
+				if (_disposed)
+					return;
+
+				_disposed = true;
+			}
+
 			_loadContext.Resolving -= OnResolving;
 			_loadedAssemblies.Clear();
+			_loadSemaphore.Dispose();
 
 			if (_loadContext.IsCollectible)
 			{
