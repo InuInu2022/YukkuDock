@@ -258,9 +258,9 @@ public partial class MainWindowViewModel
 				{
 					Title = "バックアップエラー",
 					IconSource = new SymbolIconSource { Symbol = Symbol.Important },
-					Header = $"{result.Value?.Message}",
+					Header = $"{result.Exception?.Message ?? "不明なエラー"}",
 					SubHeader =
-						$"バックアップファイルが作成できません。再度実行してください。\n {result.Value?.Message}",
+						$"バックアップファイルが作成できません。再度実行してください。\n {result.Exception?.Message ?? ""}",
 					ShowProgressBar = false,
 					Buttons = { TaskDialogButton.OKButton },
 				};

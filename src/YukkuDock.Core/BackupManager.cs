@@ -11,7 +11,7 @@ public static class BackupManager
 
 
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Correctness", "SS002:DateTime.Now was referenced", Justification = "<保留中>")]
-	public static async ValueTask<TryAsyncResult<Exception>> TryBackupAsync(
+	public static async ValueTask<TryAsyncResult<bool>> TryBackupAsync(
 		IProfileService profileService,
 		Profile profile,
 		CancellationToken cancellationToken = default)
@@ -28,7 +28,7 @@ public static class BackupManager
 		}
 		catch (Exception ex)
 		{
-			return new(false, ex);
+			return new(false, false, ex);
 		}
 
 		var now = DateTime.Now;
@@ -45,7 +45,7 @@ public static class BackupManager
 			catch (IOException ex)
 			{
 				// ユーザーに通知
-				return new(false, ex);
+				return new(false, false, ex);
 			}
 		}
 
@@ -86,7 +86,7 @@ public static class BackupManager
 		.ConfigureAwait(false);
 
 
-		return new(Success:true, Value:null);
+		return new(Success:true, Value:true);
 	}
 
 }

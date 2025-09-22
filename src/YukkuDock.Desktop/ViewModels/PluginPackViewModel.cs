@@ -1,5 +1,8 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Epoxy;
+
+using YukkuDock.Core;
 using YukkuDock.Core.Models;
 
 namespace YukkuDock.Desktop.ViewModels;
@@ -7,6 +10,9 @@ namespace YukkuDock.Desktop.ViewModels;
 [ViewModel]
 public class PluginPackViewModel
 {
+	private readonly PluginPack _pack;
+
+
 	public string Name { get; set; }
 	public string Author { get; set; }
 	public Version? Version { get; set; }
@@ -19,6 +25,7 @@ public class PluginPackViewModel
 
 	public PluginPackViewModel(PluginPack pack)
 	{
+		_pack = pack;
 		Name = pack.Name;
 		Author = pack.Author;
 		Version = pack.Version;
@@ -38,5 +45,16 @@ public class PluginPackViewModel
 		LastWriteTimeUtc = pack.LastWriteTimeUtc;
 		IsEnabled = pack.IsEnabled;
 		IsIgnoredBackup = pack.IsIgnoredBackup;
+	}
+
+	[PropertyChanged(nameof(IsEnabled))]
+	[SuppressMessage("","IDE0051")]
+	private async ValueTask IsEnabledChangedAsync(bool value)
+	{
+		var result = await PluginManager.TryChangeStatusPluginAsync(_pack, value)
+			.ConfigureAwait(true);
+		if (!result.Success) {
+			Debug.WriteLine(result.Value?.Message);
+		}
 	}
 }

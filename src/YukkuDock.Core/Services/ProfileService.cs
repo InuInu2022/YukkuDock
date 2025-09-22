@@ -47,9 +47,9 @@ public class ProfileService : IProfileService
 			var profile = JsonSerializer.Deserialize(json, ProfileJsonContext.Default.Profile);
 			return profile is not null ? new(true, profile) : new(false, null);
 		}
-		catch
+		catch (Exception ex)
 		{
-			return new(false, null);
+			return new(false, null, ex);
 		}
 	}
 
@@ -67,14 +67,14 @@ public class ProfileService : IProfileService
 				}
 			}
 		}
-		catch
+		catch (Exception ex)
 		{
-			return new(false, null);
+			return new(false, null, ex);
 		}
 		return new(true, profiles);
 	}
 
-	public async Task<TryAsyncResult<Exception>> TrySaveAsync(Profile profile)
+	public async Task<TryAsyncResult<bool>> TrySaveAsync(Profile profile)
 	{
 		var folder = GetProfileFolder(profile.Id);
 		var profilePath = Path.Combine(folder, "profile.json");
@@ -84,28 +84,30 @@ public class ProfileService : IProfileService
 				Directory.CreateDirectory(folder);
 			var json = JsonSerializer.Serialize(profile, ProfileJsonContext.Default.Profile);
 			await File.WriteAllTextAsync(profilePath, json).ConfigureAwait(false);
-			return new(true, null);
+			return new(true, true);
 		}
 		catch (Exception ex)
 		{
-			return new(false, ex);
+			return new(false, false, ex);
 		}
 	}
 
-	public async Task<TryAsyncResult<Exception>> TryDeleteAsync(Profile profile) {
+	public async Task<TryAsyncResult<bool>> TryDeleteAsync(Profile profile) {
 		var folder = GetProfileFolder(profile.Id);
 		try
 		{
 			if (Directory.Exists(folder))
 			{
 				var result = await RecycleBinManager.TryMoveAsync(folder).ConfigureAwait(false);
-				return new(result.Success, null);
+				return result.Success ?
+					new(result.Success, result.Success) :
+					new(false, false, new InvalidOperationException("RecycleBinManager failed", result.Exception));
 			}
-			return new(false, null);
+			return new(false, false, new FileNotFoundException("Profile folder not found", folder));
 		}
 		catch (Exception ex)
 		{
-			return new(false, ex);
+			return new(false, false, ex);
 		}
 	}
 }

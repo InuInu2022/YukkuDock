@@ -24,15 +24,20 @@ public partial class SettingsService : ISettingsService
 		try
 		{
 			if (!File.Exists(_settingsPath))
-				return new(false, null);
+			{
+				return new(false, null, new FileNotFoundException("Settings file not found", _settingsPath));
+			}
 
 			var json = await File.ReadAllTextAsync(_settingsPath).ConfigureAwait(false);
-			var settings = JsonSerializer.Deserialize(json, SettingsJsonContext.Default.Settings);
-			return settings is not null ? new(true, settings) : new(false, null);
+			var settings = JsonSerializer
+				.Deserialize(json, SettingsJsonContext.Default.Settings);
+			return settings is not null
+				? new(true, settings)
+				: new(false, null);
 		}
-		catch
+		catch (Exception ex)
 		{
-			return new(false, null);
+			return new(false, null, ex);
 		}
 	}
 
@@ -51,9 +56,9 @@ public partial class SettingsService : ISettingsService
 			await File.WriteAllTextAsync(_settingsPath, json).ConfigureAwait(false);
 			return new(true, true);
 		}
-		catch
+		catch (Exception ex)
 		{
-			return new(false, false);
+			return new(false, false, ex);
 		}
 	}
 }

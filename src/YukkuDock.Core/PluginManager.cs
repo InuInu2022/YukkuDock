@@ -195,7 +195,7 @@ public static class PluginManager
 		}
 
 		_ = Task.Run(
-			async () =>
+			() =>
 			{
 				using var detailPluginContext = new PluginLoadContext(appDir);
 
@@ -703,6 +703,8 @@ public static class PluginManager
 	}
 
 	// 型のコレクションからプラグインインターフェースを検索（再利用可能）
+	[RequiresUnreferencedCode("Calls YukkuDock.Core.PluginManager.HasYukkuriMovieMakerInterface(Type)")]
+
 	static bool HasPluginInterfaceFromTypes(IEnumerable<Type> types)
 	{
 		try
