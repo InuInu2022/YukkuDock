@@ -100,16 +100,16 @@ public partial class MainWindowViewModel
 	[MemberNotNull(nameof(_currentSettings))]
 	private async ValueTask LoadSettingsAsync(ISettingsService settingsService)
 	{
-		var settingsResult = await settingsService.TryLoadAsync().ConfigureAwait(true);
-		if (settingsResult.Success && settingsResult.Value is Settings settings)
+		var settingsResult = await settingsService.TryLoadAsync()
+			.ConfigureAwait(true);
+		if (settingsResult.Success && settingsResult.Value is not null)
 		{
 			//設定復元
-			_currentSettings = settings;
+			_currentSettings = settingsResult.Value;
+			return;
 		}
-		else
-		{
-			_currentSettings = new Settings();
-		}
+
+		_currentSettings = new Settings();
 	}
 
 
