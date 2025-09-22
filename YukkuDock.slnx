@@ -4,4 +4,7 @@
     <Project Path="src/YukkuDock.Core/YukkuDock.Core.csproj" />
     <Project Path="src/YukkuDock.Desktop/YukkuDock.Desktop.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Core/Core.csproj" />
+  </Folder>
 </Solution>
