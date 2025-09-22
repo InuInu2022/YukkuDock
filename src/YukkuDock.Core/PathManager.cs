@@ -2,6 +2,10 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace YukkuDock.Core;
 
+/// <summary>
+/// YMM4関連のパス管理
+/// ※YukkuDockのパス管理ではない
+/// </summary>
 public static class PathManager
 {
 	private const string UserFolderName = "user";

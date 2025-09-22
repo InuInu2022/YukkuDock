@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.IO.Compression;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
@@ -38,6 +39,8 @@ public partial class MainWindowViewModel
 	public Command? OpenProfileFolderCommand { get; private set; }
 	public Command? DuplicateProfileCommand { get; private set; }
 	public Command? DeleteProfileCommand { get; private set; }
+
+	public Command? BackupProfileCommand { get; private set; }
 
 	readonly ISettingsService settingsService;
 	readonly IProfileService profileService;
@@ -100,8 +103,7 @@ public partial class MainWindowViewModel
 	[MemberNotNull(nameof(_currentSettings))]
 	private async ValueTask LoadSettingsAsync(ISettingsService settingsService)
 	{
-		var settingsResult = await settingsService.TryLoadAsync()
-			.ConfigureAwait(true);
+		var settingsResult = await settingsService.TryLoadAsync().ConfigureAwait(true);
 		if (settingsResult.Success && settingsResult.Value is not null)
 		{
 			//設定復元
@@ -112,7 +114,7 @@ public partial class MainWindowViewModel
 		_currentSettings = new Settings();
 	}
 
-
+	[SuppressMessage("Correctness", "SS002:DateTime.Now was referenced", Justification = "<保留中>")]
 	private void InitializeCommands()
 	{
 		OpenAppCommand = Command.Factory.Create(() =>
@@ -126,11 +128,7 @@ public partial class MainWindowViewModel
 			try
 			{
 				using var process = Process.Start(
-					new ProcessStartInfo
-					{
-						FileName = SelectedItem.AppPath,
-						UseShellExecute = true,
-					}
+					new ProcessStartInfo { FileName = SelectedItem.AppPath, UseShellExecute = true }
 				);
 			}
 			catch (Exception ex)
@@ -214,7 +212,8 @@ public partial class MainWindowViewModel
 
 		OpenProfileFolderCommand = Command.Factory.CreateEasy(async () =>
 		{
-			if(SelectedItem is null){
+			if (SelectedItem is null)
+			{
 				return;
 			}
 
@@ -236,6 +235,101 @@ public partial class MainWindowViewModel
 				.ConfigureAwait(true);
 		});
 
+		BackupProfileCommand = Command.Factory.CreateEasy(async () =>
+		{
+			if (SelectedItem is null)
+			{
+				return;
+			}
+
+			var folder = profileService.GetProfileFolder(SelectedItem.Profile.Id);
+			var backupFolder = profileService.GetProfileBackupFolder(SelectedItem.Profile.Id);
+			if (!Directory.Exists(backupFolder))
+			{
+				Directory.CreateDirectory(backupFolder);
+			}
+
+			var now = DateTime.Now;
+			var backupFileName = $"profile_{now:yyyyMMdd_HHmmss}.zip";
+			var backupFilePath = Path.Combine(backupFolder, backupFileName);
+
+			// バックアップファイルの存在確認
+			if (File.Exists(backupFilePath))
+			{
+				// 既存ファイルが使用中の場合はエラー通知
+				try
+				{
+					File.Delete(backupFilePath);
+				}
+				catch (IOException)
+				{
+					// ユーザーに通知
+					var td = new TaskDialog
+					{
+						Title = "バックアップエラー",
+						IconSource = new SymbolIconSource { Symbol = Symbol.Important },
+						Header = "バックアップファイルが使用中です",
+						SubHeader =
+							$"バックアップファイル 「{backupFileName}」 が使用中です。閉じてから再度実行してください。",
+						ShowProgressBar = false,
+						Buttons = { TaskDialogButton.OKButton },
+					};
+
+					await MainWindowPile
+						.RentAsync(owner =>
+						{
+							td.XamlRoot = TopLevel.GetTopLevel(owner);
+							return default;
+						})
+						.ConfigureAwait(true);
+					await td.ShowAsync().ConfigureAwait(true);
+				}
+			}
+
+			var result = await profileService
+				.TrySaveAsync(SelectedItem.Profile)
+				.ConfigureAwait(true);
+			if (!result.Success)
+			{
+				return;
+			}
+
+			await Task.Run(() =>
+				{
+					using var archive = ZipFile.Open(backupFilePath, ZipArchiveMode.Create);
+
+					void AddDirectory(string sourceDir, string baseDir)
+					{
+						foreach (var file in Directory.EnumerateFiles(sourceDir))
+						{
+							var entryName = Path.GetRelativePath(baseDir, file);
+							archive.CreateEntryFromFile(file, entryName, CompressionLevel.Fastest);
+						}
+						foreach (var dir in Directory.EnumerateDirectories(sourceDir))
+						{
+							AddDirectory(dir, baseDir);
+						}
+					}
+					AddDirectory(folder, folder);
+				})
+				.ConfigureAwait(true);
+
+			await MainWindowPile
+				.RentAsync(
+					async (window) =>
+					{
+						var topLevel = TopLevel.GetTopLevel(window);
+						if (topLevel is null)
+							return;
+
+						await topLevel
+							.Launcher.LaunchDirectoryInfoAsync(new(backupFolder))
+							.ConfigureAwait(true);
+					}
+				)
+				.ConfigureAwait(true);
+		});
+
 		DeleteProfileCommand = Command.Factory.CreateEasy(async () =>
 		{
 			var td = new TaskDialog
@@ -245,17 +339,16 @@ public partial class MainWindowViewModel
 				Header = "ゴミ箱に移動しますか？",
 				SubHeader = $"プロファイル 「{SelectedItem?.Name}」をゴミ箱に移動しますか？",
 				Content = $"""
-					削除プロファイル
+				削除プロファイル
 
-					- 名前: {SelectedItem?.Name}
-					- YMM4へのパス: {SelectedItem?.AppPath}
-					- YMM4バージョン: {SelectedItem?.AppVersion}
-					- 説明: {SelectedItem?.Description}
-					""",
+				- 名前: {SelectedItem?.Name}
+				- YMM4へのパス: {SelectedItem?.AppPath}
+				- YMM4バージョン: {SelectedItem?.AppVersion}
+				- 説明: {SelectedItem?.Description}
+				""",
 				ShowProgressBar = false,
 				Buttons = { TaskDialogButton.YesButton, TaskDialogButton.NoButton },
 			};
-
 
 			td.Closing += DeleteProfileAsync;
 
@@ -270,12 +363,13 @@ public partial class MainWindowViewModel
 		});
 	}
 
-	[SuppressMessage(
-		"Usage",
-		"VSTHRD101"
-	)]
+	[SuppressMessage("Usage", "VSTHRD101")]
 	[SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<保留中>")]
-	[SuppressMessage("Style", "VSTHRD200:Use \"Async\" suffix for async methods", Justification = "<保留中>")]
+	[SuppressMessage(
+		"Style",
+		"VSTHRD200:Use \"Async\" suffix for async methods",
+		Justification = "<保留中>"
+	)]
 	async void DeleteProfileAsync(object? sender, TaskDialogClosingEventArgs e)
 	{
 		if ((TaskDialogStandardResult)e.Result == TaskDialogStandardResult.Yes)
@@ -291,8 +385,7 @@ public partial class MainWindowViewModel
 			td.ShowProgressBar = true;
 			td.SetProgressBarState(0, TaskDialogProgressState.Indeterminate);
 
-			_ = await profileService
-				.TryDeleteAsync(SelectedItem.Profile).ConfigureAwait(true);
+			_ = await profileService.TryDeleteAsync(SelectedItem.Profile).ConfigureAwait(true);
 			Profiles.Remove(SelectedItem);
 			SelectedItem = null;
 			IsProfileSelected = false;

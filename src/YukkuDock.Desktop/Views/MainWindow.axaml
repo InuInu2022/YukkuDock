@@ -59,7 +59,44 @@
           Label="起動プロファイル追加"
           />
       </ui:CommandBar.PrimaryCommands>
+
+      <ui:CommandBar.SecondaryCommands>
+        <ui:CommandBarElementContainer>
+          <SplitButton IsEnabled="False">
+              <ToolTip.Tip>※未実装</ToolTip.Tip>
+              <SplitButton.Flyout>
+                <ui:FAMenuFlyout>
+                  <ui:RadioMenuFlyoutItem
+                    GroupName="BackupGroup"
+                    IsChecked="True"
+                    Text="選択中のプロファイル"
+                    />
+                  <ui:RadioMenuFlyoutItem
+                    GroupName="BackupGroup"
+                    IsChecked="False"
+                    Text="全プロファイル"
+                    />
+                  <ui:MenuFlyoutSeparator />
+                  <ui:RadioMenuFlyoutItem
+                    GroupName="BackupTimerGroup"
+                    IsChecked="False"
+                    Text="定期バックアップ"
+                    />
+                </ui:FAMenuFlyout>
+              </SplitButton.Flyout>
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon
+                  Margin="0,0,5,0"
+                  FontSize="16"
+                  Symbol="ZipFolder"
+                  />
+                <TextBlock Text="バックアップ" />
+              </StackPanel>
+            </SplitButton>
+        </ui:CommandBarElementContainer>
+      </ui:CommandBar.SecondaryCommands>
     </ui:CommandBar>
+
     <SplitView
       DisplayMode="Inline"
       DockPanel.Dock="Bottom"
@@ -69,124 +106,144 @@
       >
       <!--  右ペイン  -->
       <SplitView.Pane>
-        <ItemsControl Background="{DynamicResource LayerFillColorAltBrush}">
-          <ItemsControl.Styles>
-            <Style Selector="Button">
-              <Setter Property="Margin" Value="5,5,5,0" />
-              <Setter Property="HorizontalAlignment" Value="Stretch" />
-            </Style>
-          </ItemsControl.Styles>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <ItemsControl Background="{DynamicResource LayerFillColorAltBrush}">
+            <ItemsControl.Styles>
+              <Style Selector="Button">
+                <Setter Property="Margin" Value="5,5,5,0" />
+                <Setter Property="FontSize" Value="12.5" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+              </Style>
+            </ItemsControl.Styles>
 
-          <!--  縦に並べる  -->
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel HorizontalAlignment="Stretch" Orientation="Vertical" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
+            <!--  縦に並べる  -->
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel HorizontalAlignment="Stretch" Orientation="Vertical" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
 
-          <!--  コンテンツ  -->
-          <StackPanel
-            Margin="10"
-            HorizontalAlignment="Stretch"
-            Orientation="Vertical"
-            >
-            <TextBlock FontSize="10" Text="{Binding SelectedItem.AppVersion, Converter={StaticResource EmptyVersionIfNull}}" />
-            <ui:BitmapIcon
-              Width="50"
-              Height="50"
-              Margin="10"
-              UriSource="avares://YukkuDock.Desktop/Assets/profile_default.png"
-              />
-            <TextBox Text="{Binding SelectedItem.Name, Mode=TwoWay}" TextWrapping="Wrap" />
-          </StackPanel>
+            <!--  コンテンツ  -->
+            <StackPanel
+              Margin="5,0"
+              HorizontalAlignment="Stretch"
+              Orientation="Vertical"
+              >
+              <AdornerLayer.Adorner>
+                <Grid>
+                  <TextBlock
+                    FontSize="10"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Text="{Binding SelectedItem.AppVersion, Converter={StaticResource EmptyVersionIfNull}}" />
+                </Grid>
+              </AdornerLayer.Adorner>
 
-          <Button
-            Classes="accent"
-            Command="{Binding OpenAppCommand}"
-            IsEnabled="{Binding SelectedItem.IsAppExists, FallbackValue=False}"
-            >
-            <AdornerLayer.Adorner>
-              <Grid>
-                <ui:InfoBadge
-                  HorizontalAlignment="Right"
-                  VerticalAlignment="Top"
-                  Classes="Critical Icon"
-                  IsVisible="{Binding !SelectedItem.IsAppExists, FallbackValue=True}"
+              <ui:BitmapIcon
+                Width="50"
+                Height="50"
+                Margin="10"
+                UriSource="avares://YukkuDock.Desktop/Assets/profile_default.png"
+                />
+              <TextBox Text="{Binding SelectedItem.Name, Mode=TwoWay}" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Button
+              Classes="accent"
+              Command="{Binding OpenAppCommand}"
+              IsEnabled="{Binding SelectedItem.IsAppExists, FallbackValue=False}"
+              >
+              <AdornerLayer.Adorner>
+                <Grid>
+                  <ui:InfoBadge
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Classes="Critical Icon"
+                    IsVisible="{Binding !SelectedItem.IsAppExists, FallbackValue=True}"
+                    />
+                </Grid>
+              </AdornerLayer.Adorner>
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon
+                  Margin="0,0,5,0"
+                  FontSize="16"
+                  Symbol="PlayFilled"
                   />
-              </Grid>
-            </AdornerLayer.Adorner>
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon
-                Margin="0,0,5,0"
-                FontSize="16"
-                Symbol="PlayFilled"
-                />
-              <TextBlock Text="起動" />
-            </StackPanel>
-          </Button>
+                <TextBlock Text="起動" />
+              </StackPanel>
+            </Button>
 
-          <Button Command="{Binding EditProfileCommand}">
-            <AdornerLayer.Adorner>
-              <Grid>
-                <ui:InfoBadge
-                  HorizontalAlignment="Right"
-                  VerticalAlignment="Top"
-                  Classes="Caution Icon"
-                  IsVisible="{Binding !SelectedItem.IsAppExists, FallbackValue=True}"
+            <Button Command="{Binding EditProfileCommand}">
+              <AdornerLayer.Adorner>
+                <Grid>
+                  <ui:InfoBadge
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Classes="Caution Icon"
+                    IsVisible="{Binding !SelectedItem.IsAppExists, FallbackValue=True}"
+                    />
+                </Grid>
+              </AdornerLayer.Adorner>
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon
+                  Margin="0,0,5,0"
+                  FontSize="16"
+                  Symbol="Edit"
                   />
-              </Grid>
-            </AdornerLayer.Adorner>
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon
-                Margin="0,0,5,0"
-                FontSize="16"
-                Symbol="Edit"
-                />
-              <TextBlock Text="設定" />
-            </StackPanel>
-          </Button>
+                <TextBlock Text="編集" />
+              </StackPanel>
+            </Button>
 
-          <Button
-            Command="{Binding DuplicateProfileCommand}">
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon
-                Margin="0,0,5,0"
-                FontSize="16"
-                Symbol="CopyFilled"
-                />
-              <TextBlock Text="複製" />
-            </StackPanel>
-          </Button>
+            <Button Command="{Binding DuplicateProfileCommand}">
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon
+                  Margin="0,0,5,0"
+                  FontSize="16"
+                  Symbol="CopyFilled"
+                  />
+                <TextBlock Text="複製" />
+              </StackPanel>
+            </Button>
 
-          <Button
-            Command="{Binding OpenProfileFolderCommand}">
-            <ToolTip.Tip>起動プロファイルフォルダ開く</ToolTip.Tip>
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon
-                Margin="0,0,5,0"
-                FontSize="16"
-                Symbol="OpenFolder"
-                />
-              <TextBlock Text="フォルダを開く" />
-            </StackPanel>
-          </Button>
+            <Button Command="{Binding OpenProfileFolderCommand}">
+              <ToolTip.Tip>起動プロファイルフォルダ開く</ToolTip.Tip>
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon
+                  Margin="0,0,5,0"
+                  FontSize="16"
+                  Symbol="OpenFolder"
+                  />
+                <TextBlock Text="フォルダを開く" />
+              </StackPanel>
+            </Button>
 
-          <Separator Height="5" />
+            <Button Command="{Binding BackupProfileCommand}">
+              <ToolTip.Tip>バックアップ</ToolTip.Tip>
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon
+                  Margin="0,0,5,0"
+                  FontSize="16"
+                  Symbol="ZipFolder"
+                  />
+                <TextBlock Text="バックアップ" />
+              </StackPanel>
+            </Button>
 
-          <Button
-            Command="{Binding DeleteProfileCommand}">
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon
-                Margin="0,0,5,0"
-                FontSize="16"
-                Symbol="Delete"
-                />
-              <TextBlock Text="削除" />
-            </StackPanel>
-          </Button>
+            <Separator Height="1" Margin="5,5,5,0" />
 
-        </ItemsControl>
+            <Button Command="{Binding DeleteProfileCommand}">
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon
+                  Margin="0,0,5,0"
+                  FontSize="16"
+                  Symbol="Delete"
+                  />
+                <TextBlock Text="削除" />
+              </StackPanel>
+            </Button>
 
+          </ItemsControl>
+        </ScrollViewer>
 
       </SplitView.Pane>
 
@@ -223,7 +280,7 @@
                 Width="35"
                 Height="35"
                 Margin="5,10,5,0"
-                UriSource="avares://               YukkuDock.Desktop/Assets/profile_default.png"
+                UriSource="avares://YukkuDock.Desktop/Assets/profile_default.png"
                 />
               <TextBlock
                 HorizontalAlignment="Center"
@@ -249,7 +306,7 @@
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Classes="Caution Icon"
-                    IsVisible="{Binding !IsAppExists}"
+                    IsVisible="{Binding !IsAppExists, FallbackValue=True}"
                     />
                 </Grid>
               </AdornerLayer.Adorner>

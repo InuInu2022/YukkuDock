@@ -31,6 +31,9 @@ public class ProfileService : IProfileService
 
 	public string GetProfileFolder(Guid id) => Path.Combine(profilesRootPath, id.ToString());
 
+	// Profile保存フォルダ直下にBackup/GUID/を作成
+	public string GetProfileBackupFolder(Guid id) => Path.Combine(profilesRootPath, "Backup", id.ToString());
+
 	public async Task<TryAsyncResult<Profile>> TryLoadAsync(Guid id)
 	{
 		var folder = GetProfileFolder(id);
