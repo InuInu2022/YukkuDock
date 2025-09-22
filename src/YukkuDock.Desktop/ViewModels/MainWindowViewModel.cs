@@ -242,8 +242,10 @@ public partial class MainWindowViewModel
 				return;
 			}
 
-			var folder = profileService.GetProfileFolder(SelectedItem.Profile.Id);
-			var backupFolder = profileService.GetProfileBackupFolder(SelectedItem.Profile.Id);
+			var profileId = SelectedItem.Profile.Id;
+			var profileFolder = profileService.GetProfileFolder(profileId);
+			var backupFolder = profileService.GetProfileBackupFolder(profileId);
+
 			if (!Directory.Exists(backupFolder))
 			{
 				Directory.CreateDirectory(backupFolder);
@@ -298,19 +300,23 @@ public partial class MainWindowViewModel
 				{
 					using var archive = ZipFile.Open(backupFilePath, ZipArchiveMode.Create);
 
-					void AddDirectory(string sourceDir, string baseDir)
+					// GUID名のフォルダごと圧縮するため、ルートにGUIDフォルダを追加
+					void AddDirectory(string sourceDir, string baseDir, string guidFolderName)
 					{
 						foreach (var file in Directory.EnumerateFiles(sourceDir))
 						{
-							var entryName = Path.GetRelativePath(baseDir, file);
+							// entryName: GUID/xxx/yyy
+							var entryName = Path.Combine(guidFolderName, Path.GetRelativePath(baseDir, file));
 							archive.CreateEntryFromFile(file, entryName, CompressionLevel.Fastest);
 						}
 						foreach (var dir in Directory.EnumerateDirectories(sourceDir))
 						{
-							AddDirectory(dir, baseDir);
+							AddDirectory(dir, baseDir, guidFolderName);
 						}
 					}
-					AddDirectory(folder, folder);
+
+					// GUID名のフォルダで圧縮
+					AddDirectory(profileFolder, profileFolder, profileId.ToString());
 				})
 				.ConfigureAwait(true);
 
