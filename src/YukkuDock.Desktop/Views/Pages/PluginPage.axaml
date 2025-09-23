@@ -84,7 +84,7 @@
         </SplitButton>
 
         <SplitButton Margin="5,2,0,2"
-          IsEnabled="False"
+          Command="{Binding BackupPluginPacksCommand}"
           >
           <ToolTip.Tip>※未実装：バックアップ</ToolTip.Tip>
           <SplitButton.Flyout>
@@ -92,12 +92,12 @@
               <!--  use the GroupName property to group radio items together  -->
               <ui:RadioMenuFlyoutItem
                 GroupName="BackupGroup"
-                IsChecked="True"
+                IsChecked="{ Binding !IsBackupAllPlugins }"
                 Text="選択中のプラグイン"
                 />
               <ui:RadioMenuFlyoutItem
                 GroupName="BackupGroup"
-                IsChecked="True"
+                IsChecked="{ Binding IsBackupAllPlugins }"
                 Text="全プラグイン"
                 />
             </ui:FAMenuFlyout>

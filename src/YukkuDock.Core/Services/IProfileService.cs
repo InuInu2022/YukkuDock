@@ -12,6 +12,9 @@ public interface IProfileService
 	string GetProfileFolder(Guid id);
 	// Profile保存フォルダ直下のBackup/GUID/を返す
 	string GetProfileBackupFolder(Guid id);
+
+	string GetPluginPacksBackupFolder(Guid id);
+
 	/// <summary>
 	/// プロファイルの安全な読込。失敗時はSuccess=false。
 	/// </summary>

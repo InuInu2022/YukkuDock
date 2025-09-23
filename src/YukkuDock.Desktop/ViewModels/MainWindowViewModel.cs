@@ -256,7 +256,7 @@ public partial class MainWindowViewModel
 				.GetProfileBackupFolder(SelectedItem.Profile.Id);
 
 
-			var result = await BackupManager.TryBackupAsync(
+			var result = await BackupManager.TryBackupProfileAsync(
 				profileService,
 				SelectedItem.Profile
 			).ConfigureAwait(true);

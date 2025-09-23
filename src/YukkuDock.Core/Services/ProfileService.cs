@@ -34,6 +34,9 @@ public class ProfileService : IProfileService
 	// Profile保存フォルダ直下にBackup/GUID/を作成
 	public string GetProfileBackupFolder(Guid id) => Path.Combine(profilesRootPath, "Backup", id.ToString());
 
+	// プラグインのバックアップフォルダ
+	public string GetPluginPacksBackupFolder(Guid id) => Path.Combine(profilesRootPath, id.ToString(), "PluginPacks", "Backup");
+
 	public async Task<TryAsyncResult<Profile>> TryLoadAsync(Guid id)
 	{
 		var folder = GetProfileFolder(id);

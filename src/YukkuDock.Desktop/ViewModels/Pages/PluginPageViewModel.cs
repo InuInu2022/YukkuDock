@@ -17,7 +17,7 @@ namespace YukkuDock.Desktop.ViewModels;
 
 [SuppressMessage("Correctness", "SS004:")]
 [ViewModel]
-public class PluginPageViewModel
+public class PluginPageViewModel : IDisposable
 {
 	public string SubTitle { get; set; } = "プラグイン管理";
 	public ProfileViewModel? ProfileVm { get; set; }
@@ -35,10 +35,14 @@ public class PluginPageViewModel
 	public Command? OpenPluginFolderCommand { get; set; }
 	public Command? UpdatePluginsCommand { get; set; }
 
+	public Command? BackupPluginPacksCommand { get; set; }
+
 	public bool CanOpenPluginFolder { get; set; }
 	public bool CanUpdatePlugins { get; set; } = true;
 	public bool IsOpenAllPluginFolder { get; set; } = true;
 	public bool IsUpdatingPlugins { get; set; }
+
+	public bool IsBackupAllPlugins { get; set; }
 
 	public int LoadPluginsPerFolder { get; set; } = 10;
 
@@ -77,6 +81,8 @@ public class PluginPageViewModel
 
 	readonly IProfileService profileService;
 	readonly ISettingsService settingsService;
+	private bool _disposedValue;
+
 
 	public PluginPageViewModel(IProfileService profileService, ISettingsService settingsService)
 	{
@@ -360,6 +366,52 @@ public class PluginPageViewModel
 			},
 			() => !IsUpdatingPlugins
 		);
+
+		BackupPluginPacksCommand = Command.Factory.CreateEasy(async () =>
+		{
+			if (ProfileVm is null || ProfileVm.PluginPacks is null || ProfileVm.PluginPacks.Count == 0)
+				return;
+
+			List<PluginPack> packs = IsBackupAllPlugins
+				? new List<PluginPack>(ProfileVm.PluginPacks)
+				: SelectedPlugin is null
+					? new List<PluginPack>()
+					: new List<PluginPack>([SelectedPlugin.PluginPack]);
+			;
+			var result = await BackupManager
+				.TryBackupPluginPacksAsync(
+					profileService,
+					ProfileVm.Profile,
+					packs
+				)
+				.ConfigureAwait(true);
+
+			if (!result.Success)
+			{
+				Debug.WriteLine(
+					"プラグインのバックアップに失敗しました。" + result.Exception?.Message ?? ""
+				);
+			}
+
+			var folder = new DirectoryInfo(
+				profileService.GetPluginPacksBackupFolder(ProfileVm.Profile.Id)
+			);
+
+			await PagePile
+				.RentAsync(
+					async (page) =>
+					{
+						var topLevel = TopLevel.GetTopLevel(page);
+						if (topLevel is null)
+							return;
+
+						await topLevel
+							.Launcher.LaunchDirectoryInfoAsync(folder)
+							.ConfigureAwait(true);
+					}
+				)
+				.ConfigureAwait(true);
+		});
 	}
 
 	[PropertyChanged(nameof(ProfileVm))]
@@ -477,5 +529,32 @@ public class PluginPageViewModel
 		return default;
 	}
 
+	protected virtual void Dispose(bool disposing)
+	{
+		if (!_disposedValue)
+		{
+			if (disposing)
+			{
+				// マネージド状態を破棄します (マネージド オブジェクト)
+				PluginsSource?.Dispose();
+			}
+
+			_disposedValue = true;
+		}
+	}
+
+	// // TODO: 'Dispose(bool disposing)' にアンマネージド リソースを解放するコードが含まれる場合にのみ、ファイナライザーをオーバーライドします
+	// ~PluginPageViewModel()
+	// {
+	//     // このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
+	//     Dispose(disposing: false);
+	// }
+
+	public void Dispose()
+	{
+		// このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
+		Dispose(disposing: true);
+		GC.SuppressFinalize(this);
+	}
 
 }

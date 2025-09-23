@@ -8,9 +8,11 @@ using YukkuDock.Core.Models;
 namespace YukkuDock.Desktop.ViewModels;
 
 [ViewModel]
-public class PluginPackViewModel
+public class PluginPackViewModel : IDisposable
 {
 	private readonly PluginPack _pack;
+
+	public PluginPack PluginPack => _pack;
 
 	public string Name { get; set; }
 	public string Author { get; set; }
@@ -22,6 +24,11 @@ public class PluginPackViewModel
 	public bool IsEnabled { get; set; }
 	public string LastWriteTimeText
 		=> LastWriteTimeUtc.ToLocalTime().ToString("u");
+
+
+	readonly SemaphoreSlim isEnabledSemaphore = new(1, 1);
+	bool suppressIsEnabledChanged; // 再入・無限ループ防止
+	bool _disposedValue;
 
 	public PluginPackViewModel(PluginPack pack)
 	{
@@ -48,8 +55,8 @@ public class PluginPackViewModel
 		IsIgnoredBackup = pack.IsIgnoredBackup;
 	}
 
-	readonly SemaphoreSlim isEnabledSemaphore = new(1, 1);
-	bool suppressIsEnabledChanged; // 再入・無限ループ防止
+
+
 
 	[PropertyChanged(nameof(IsEnabled))]
 	[SuppressMessage("", "IDE0051")]
@@ -106,4 +113,35 @@ public class PluginPackViewModel
 
 		return;
 	}
+
+	protected virtual void Dispose(bool disposing)
+	{
+		if (!_disposedValue)
+		{
+			if (disposing)
+			{
+				// マネージド状態を破棄します (マネージド オブジェクト)
+				isEnabledSemaphore?.Dispose();
+			}
+
+			// TODO: アンマネージド リソース (アンマネージド オブジェクト) を解放し、ファイナライザーをオーバーライドします
+			// TODO: 大きなフィールドを null に設定します
+			_disposedValue = true;
+		}
+	}
+
+	// // TODO: 'Dispose(bool disposing)' にアンマネージド リソースを解放するコードが含まれる場合にのみ、ファイナライザーをオーバーライドします
+	// ~PluginPackViewModel()
+	// {
+	//     // このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
+	//     Dispose(disposing: false);
+	// }
+
+	public void Dispose()
+	{
+		// このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
+		Dispose(disposing: true);
+		GC.SuppressFinalize(this);
+	}
+
 }
