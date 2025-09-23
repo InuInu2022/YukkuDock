@@ -19,6 +19,7 @@ namespace YukkuDock.Desktop.ViewModels;
 [ViewModel]
 public class PluginPageViewModel
 {
+	public string SubTitle {get; set;} = "プラグイン管理";
 	public ProfileViewModel? ProfileVm { get; set; }
 
 	public Pile<PluginPage> PagePile { get; } = Pile.Factory.Create<PluginPage>();
@@ -48,8 +49,8 @@ public class PluginPageViewModel
 		static (_, __) =>
 			new Viewbox()
 			{
-				Width = 32,
-				Height = 20,
+				Width = 36,
+				Height = 22,
 				Child = new ToggleSwitch
 				{
 					[!ToggleSwitch.IsCheckedProperty] = new Binding(
@@ -152,10 +153,12 @@ public class PluginPageViewModel
 				new TextColumn<PluginPackViewModel, string>("フォルダ", x => x.FolderName),
 				new TextColumn<PluginPackViewModel, string>("プラグイン名", x => x.Name),
 				new TextColumn<PluginPackViewModel, string>("バージョン", static x => x.Version != null ? x.Version.ToString() : "?"),
-				new TextColumn<PluginPackViewModel, string>("作者", x => x.Author),
 				new TextColumn<PluginPackViewModel, string>("最終更新日時", x => x.LastWriteTimeText),
+				new TextColumn<PluginPackViewModel, string>("作者", x => x.Author),
 			},
 		};
+
+		SubTitle = $"プラグイン管理 - ({Plugins.Count} 個)";
 	}
 
 	/// <summary>

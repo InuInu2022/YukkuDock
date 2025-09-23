@@ -25,7 +25,7 @@
       <TextBlock
         Grid.Column="0"
         VerticalAlignment="Center"
-        Text="プラグイン管理"
+        Text="{Binding SubTitle}"
         Theme="{StaticResource SubtitleTextBlockStyle}"
         />
 
