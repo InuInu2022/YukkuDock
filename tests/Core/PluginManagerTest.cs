@@ -91,6 +91,52 @@ public class PluginManagerTest : IDisposable
 	}
 
 	[Fact]
+	// プラグインを有効→無効→有効するテスト
+	public async Task EnablesDisablesEnablesPlugin()
+	{
+		var filePath = CreateTempPluginFile("test.dll", tempFiles);
+		var plugin = new PluginPack { InstalledPath = filePath };
+
+		// 有効化
+		var result = await PluginManager.TryChangeStatusPluginAsync(plugin, true);
+		Assert.True(result.Success);
+		Assert.True(File.Exists(filePath));
+
+		// 無効化
+		result = await PluginManager.TryChangeStatusPluginAsync(plugin, false);
+		Assert.True(result.Success);
+		Assert.True(File.Exists(filePath + ".disabled"));
+
+		// 再度有効化
+		result = await PluginManager.TryChangeStatusPluginAsync(plugin, true);
+		Assert.True(result.Success);
+		Assert.True(File.Exists(filePath));
+	}
+
+	// プラグインを無効→有効→無効にするテスト
+	[Fact]
+	public async Task DisablesEnablesDisablesPlugin()
+	{
+		var filePath = CreateTempPluginFile("test.dll", tempFiles);
+		var plugin = new PluginPack { InstalledPath = filePath };
+
+		// 無効化
+		var result = await PluginManager.TryChangeStatusPluginAsync(plugin, false);
+		Assert.True(result.Success);
+		Assert.True(File.Exists(filePath + ".disabled"));
+
+		// 有効化
+		result = await PluginManager.TryChangeStatusPluginAsync(plugin, true);
+		Assert.True(result.Success);
+		Assert.True(File.Exists(filePath));
+
+		// 再度無効化
+		result = await PluginManager.TryChangeStatusPluginAsync(plugin, false);
+		Assert.True(result.Success);
+		Assert.True(File.Exists(filePath + ".disabled"));
+	}
+
+	[Fact]
 	// 既に有効な場合、何も行わないことを検証するテスト
 	public async Task NoActionIfAlreadyEnabled()
 	{
@@ -123,5 +169,17 @@ public class PluginManagerTest : IDisposable
 		Assert.True(result.Success);
 		Assert.True(File.Exists(correctedPath));
 		tempFiles.Add(correctedPath);
+	}
+
+	// PluginPack.InstalledPath が実ファイル名とズレているケースを修正するテスト
+	[Fact]
+	public async Task CorrectsInstalledPathMismatch()
+	{
+		var filePath = CreateTempPluginFile("test.dll", tempFiles);
+		var plugin = new PluginPack { InstalledPath = filePath + ".disabled" };
+		var result = await PluginManager.TryChangeStatusPluginAsync(plugin, false);
+		Assert.True(result.Success);
+		Assert.True(File.Exists(filePath + ".disabled"));
+		tempFiles.Add(filePath + ".disabled");
 	}
 }

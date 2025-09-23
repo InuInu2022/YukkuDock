@@ -36,13 +36,64 @@ public static class PluginManager
 	}.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
 	/// <summary>
+	/// InstalledPath が古い/不正でも、同ディレクトリ内から現在実在する候補（.dll / .dll.disabled）を解決する。
+	/// 例）xxx.dll ⇔ xxx.dll.disabled、二重 .disabled の正規化にも対応。
+	/// </summary>
+	static FileInfo? ResolveExistingVariant(FileInfo candidate)
+	{
+		// 実在する *.dll / *.dll.disabled を同ディレクトリから特定する
+		var dir = candidate.Directory?.FullName;
+		if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
+		{
+			return null;
+		}
+
+		// 末尾の .disabled を畳み込んでから "xxx.dll" をベース名に確定
+		var name = candidate.Name;
+		while (name.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase))
+		{
+			name = name[..^(".disabled".Length)];
+		}
+		var idx = name.LastIndexOf(".dll", StringComparison.OrdinalIgnoreCase);
+		if (idx < 0)
+		{
+			return null;
+		}
+		var baseDllName = name[..(idx + 4)]; // "xxx.dll"
+
+		// 探索候補
+		string[] candidates =
+		[
+			Path.Combine(dir, baseDllName),
+			Path.Combine(dir, baseDllName + ".disabled"),
+			Path.Combine(dir, baseDllName + ".disabled.disabled"),
+		];
+
+		foreach (var p in candidates)
+		{
+			if (File.Exists(p))
+			{
+				// 二重 .disabled は即時正規化
+				if (p.EndsWith(".dll.disabled.disabled", StringComparison.Ordinal))
+				{
+					var normalized = p.Replace(".dll.disabled.disabled", ".dll.disabled", StringComparison.Ordinal);
+					if (!File.Exists(normalized))
+					{
+						new FileInfo(p).MoveTo(normalized);
+					}
+					return new FileInfo(normalized);
+				}
+				return new FileInfo(p);
+			}
+		}
+
+		return null;
+	}
+
+	/// <summary>
 	/// プラグインの有効/無効を切り替える。失敗時はSuccess=false。
 	/// </summary>
-	/// <param name="plugin"></param>
-	/// <param name="enable"></param>
-	/// <param name="cancellationToken"></param>
-	/// <returns></returns>
-	public static async ValueTask<TryAsyncResult<bool>> TryChangeStatusPluginAsync(
+	public static async ValueTask<TryAsyncResult<string>> TryChangeStatusPluginAsync(
 		PluginPack plugin,
 		bool enable,
 		CancellationToken cancellationToken = default
@@ -50,103 +101,87 @@ public static class PluginManager
 	{
 		try
 		{
-			var pluginFile = new FileInfo(plugin.InstalledPath);
+			var originalPath = plugin.InstalledPath;
+			var pluginFile = new FileInfo(originalPath);
+
+			// UI側の InstalledPath が古い/ズレていても実在ファイルへ補正
+			var resolved = ResolveExistingVariant(pluginFile);
+			if (resolved is not null)
+			{
+				pluginFile = resolved;
+			}
+
 			if (!pluginFile.Exists)
 			{
-				return new(
-					false,
-					false,
-					new FileNotFoundException("Plugin file not found.", plugin.InstalledPath)
-				);
+				return new(false, string.Empty, new FileNotFoundException("Plugin file not found.", plugin.InstalledPath));
 			}
 
+			// 以降は pluginFile.FullName を基準に .dll ⇔ .dll.disabled のみを移動
+			// ".dll.disabled.disabled" は上の ResolveExistingVariant で正規化済み前提
 			var fileName = pluginFile.Name;
 			var isDll =
-				fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
-				|| fileName.EndsWith(".dll.disabled", StringComparison.OrdinalIgnoreCase)
-				|| fileName.EndsWith(".dll.disabled.disabled", StringComparison.OrdinalIgnoreCase);
+				fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ||
+				fileName.EndsWith(".dll.disabled", StringComparison.OrdinalIgnoreCase) ||
+				fileName.EndsWith(".dll.disabled.disabled", StringComparison.OrdinalIgnoreCase);
 			if (!isDll)
 			{
-				return new(false, false);
+				return new(false, string.Empty);
 			}
 
-			// ".dll.disabled.disabled"は即座に".dll.disabled"へ修正
-			if (pluginFile.FullName.EndsWith(".dll.disabled.disabled", StringComparison.Ordinal))
-			{
-				var correctedPath = pluginFile.FullName.Replace(
-					".dll.disabled.disabled",
-					".dll.disabled",
-					StringComparison.Ordinal
-				);
-				if (!File.Exists(correctedPath))
-				{
-					pluginFile.MoveTo(correctedPath);
-				}
-				pluginFile = new FileInfo(correctedPath);
-			}
+			// 現在状態を判定（.dll.disabled.disabled は前段で正規化済みの想定だが二重に見ておく）
+			var currentPath = pluginFile.FullName;
+			var isCurrentlyDisabled =
+				currentPath.EndsWith(".dll.disabled", StringComparison.Ordinal) ||
+				currentPath.EndsWith(".dll.disabled.disabled", StringComparison.Ordinal);
 
 			string targetPath;
 			if (enable)
 			{
-				// 有効化時はどちらも ".dll" に戻す
-				if (
-					pluginFile.FullName.EndsWith(".dll.disabled", StringComparison.Ordinal)
-					|| pluginFile.FullName.EndsWith(
-						".dll.disabled.disabled",
-						StringComparison.Ordinal
-					)
-				)
-				{
-					targetPath = pluginFile
-						.FullName.Replace(
-							".dll.disabled.disabled",
-							".dll",
-							StringComparison.Ordinal
-						)
-						.Replace(".dll.disabled", ".dll", StringComparison.Ordinal);
-				}
-				else
-				{
-					targetPath = pluginFile.FullName;
-				}
+				// 有効化：.dll.disabled[.disabled] → .dll
+				targetPath = isCurrentlyDisabled
+					? currentPath
+						.Replace(".dll.disabled.disabled", ".dll", StringComparison.Ordinal)
+						.Replace(".dll.disabled", ".dll", StringComparison.Ordinal)
+					: currentPath; // 既に有効
 			}
 			else
 			{
-				// 無効化時は ".dll.disabled" で終わっていれば何もしない
-				if (pluginFile.FullName.EndsWith(".dll.disabled", StringComparison.Ordinal))
+				// 無効化：.dll → .dll.disabled（既に無効なら現状維持、二重無効は正規化）
+				if (currentPath.EndsWith(".dll", StringComparison.Ordinal) && !isCurrentlyDisabled)
 				{
-					targetPath = pluginFile.FullName;
+					targetPath = currentPath + ".disabled";
 				}
-				else if (
-					pluginFile.FullName.EndsWith(".dll.disabled.disabled", StringComparison.Ordinal)
-				)
+				else if (currentPath.EndsWith(".dll.disabled.disabled", StringComparison.Ordinal))
 				{
-					// 既に修正済みなので何もしない
-					targetPath = pluginFile.FullName.Replace(
-						".dll.disabled.disabled",
-						".dll.disabled",
-						StringComparison.Ordinal
-					);
+					targetPath = currentPath.Replace(".dll.disabled.disabled", ".dll.disabled", StringComparison.Ordinal);
 				}
 				else
 				{
-					targetPath = pluginFile.FullName + ".disabled";
+					targetPath = currentPath; // 既に無効
 				}
 			}
 
-			if (string.Equals(pluginFile.FullName, targetPath, StringComparison.Ordinal))
+			if (string.Equals(currentPath, targetPath, StringComparison.Ordinal))
 			{
-				return new(true, true);
+				// 呼び出し元が追随できるよう、現行パスを返す
+				return new(true, currentPath);
 			}
 
-			await Task.Run(() => pluginFile.MoveTo(targetPath), cancellationToken)
-				.ConfigureAwait(false);
+			await Task.Run(() =>
+			{
+				// 競合回避：ターゲットが既にあれば削除してから移動
+				if (File.Exists(targetPath))
+				{
+					File.Delete(targetPath);
+				}
+				pluginFile.MoveTo(targetPath);
+			}, cancellationToken).ConfigureAwait(false);
 
-			return new(true, true);
+			return new(true, targetPath);
 		}
 		catch (Exception ex)
 		{
-			return new(false, false, ex);
+			return new(false, string.Empty, ex);
 		}
 	}
 
