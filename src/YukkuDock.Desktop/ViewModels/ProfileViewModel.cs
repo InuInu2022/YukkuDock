@@ -27,6 +27,20 @@ public partial class ProfileViewModel(Profile profile, IProfileService profileSe
 	const int DebounceMilliseconds = 1000;
 	readonly IProfileService _profileService = profileService;
 
+	readonly Lock saveTimerLock = new();
+
+
+	public void UpdateYmmVersion()
+	{
+		if (!File.Exists(Profile.AppPath)) return;
+		var info = FileVersionInfo.GetVersionInfo(Profile.AppPath);
+		Debug.WriteLine(info.FileVersion);
+		if (Version.TryParse(info.FileVersion, out var version))
+		{
+			AppVersion = version;
+		}
+	}
+
 	[SuppressMessage("Usage", "VSTHRD101:Avoid unsupported async delegates", Justification = "<保留中>")]
 	[SuppressMessage("Usage", "MA0147:Avoid async void method for delegate", Justification = "<保留中>")]
 	[SuppressMessage("Concurrency", "PH_S034:Async Lambda Inferred to Async Void", Justification = "<保留中>")]
@@ -53,13 +67,14 @@ public partial class ProfileViewModel(Profile profile, IProfileService profileSe
 				}
 				finally
 				{
-					if (saveTimer is not null)
+					lock (saveTimerLock)
 					{
-						await saveTimer.DisposeAsync()
-							.ConfigureAwait(true);
+						if (saveTimer is not null)
+						{
+							saveTimer?.Dispose();
+							saveTimer = null;
+						}
 					}
-
-					saveTimer = null;
 				}
 			},
 			null,

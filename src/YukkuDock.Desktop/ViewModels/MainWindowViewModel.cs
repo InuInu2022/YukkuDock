@@ -103,6 +103,9 @@ public partial class MainWindowViewModel
 			{
 				var vm = new ProfileViewModel(profile, profileService);
 				Profiles.Add(vm);
+
+				//update version
+				vm.UpdateYmmVersion();
 			}
 		}
 	}

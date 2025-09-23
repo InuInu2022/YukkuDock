@@ -85,7 +85,7 @@ public partial class ProfileWindowViewModel
 				await LoadPageContentAsync(Pages[0]).ConfigureAwait(true);
 
 				//version update
-				UpdateYmmVersion();
+				ProfileVm.UpdateYmmVersion();
 
 				_isLoaded = true;
 			}
@@ -93,17 +93,6 @@ public partial class ProfileWindowViewModel
 		SelectAppPathCommand = Command.Factory.Create(LoadApplicationAsync);
 		CloseCommand = Command.Factory.Create(SaveProfileAndCloseAsync, () => IsClosable);
 	}
-
-	private void UpdateYmmVersion()
-	{
-		var info = FileVersionInfo.GetVersionInfo(ProfileVm.AppPath);
-		Debug.WriteLine(info.FileVersion);
-		if (Version.TryParse(info.FileVersion, out var version))
-		{
-			ProfileVm.AppVersion = version;
-		}
-	}
-
 
 	async ValueTask LoadApplicationAsync()
 	{
@@ -131,7 +120,7 @@ public partial class ProfileWindowViewModel
 			.ConfigureAwait(true);
 
 		//version update
-		UpdateYmmVersion();
+		ProfileVm.UpdateYmmVersion();
 	}
 
 	async ValueTask SaveProfileAndCloseAsync()
