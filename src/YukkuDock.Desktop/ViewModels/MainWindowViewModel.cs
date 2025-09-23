@@ -2,6 +2,8 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
+using System.Reflection;
+
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
@@ -17,6 +19,7 @@ namespace YukkuDock.Desktop.ViewModels;
 [ViewModel]
 public partial class MainWindowViewModel
 {
+	public string WindowTitle {get;set;} = string.Empty;
 	public ObservableCollection<ProfileViewModel> Profiles { get; set; }
 
 	public ProfileViewModel? SelectedItem { get; set; }
@@ -59,6 +62,10 @@ public partial class MainWindowViewModel
 			async () =>
 			{
 				IsLoaded = true;
+
+				WindowTitle = "YukkuDock for YMM4 - " + Assembly.GetEntryAssembly()
+						?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+						?.InformationalVersion;
 
 				//load settings
 				await LoadSettingsAsync(settingsService).ConfigureAwait(true);

@@ -9,7 +9,7 @@
   xmlns:model="using:YukkuDock.Core.Models"
   xmlns:ui="using:FluentAvalonia.UI.Controls"
   xmlns:vm="using:YukkuDock.Desktop.ViewModels"
-  Title="YukkuDock for YMM4"
+  Title="{Binding WindowTitle}"
   Width="600"
   Height="400"
   d:DesignHeight="250"
