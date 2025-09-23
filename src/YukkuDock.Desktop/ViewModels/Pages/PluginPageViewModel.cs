@@ -19,22 +19,24 @@ namespace YukkuDock.Desktop.ViewModels;
 [ViewModel]
 public class PluginPageViewModel
 {
-	public string SubTitle {get; set;} = "プラグイン管理";
+	public string SubTitle { get; set; } = "プラグイン管理";
 	public ProfileViewModel? ProfileVm { get; set; }
 
 	public Pile<PluginPage> PagePile { get; } = Pile.Factory.Create<PluginPage>();
 	public Well<PluginPage> PageWell { get; } = Well.Factory.Create<PluginPage>();
 
 	public Pile<TreeDataGrid> PluginListPile { get; } = Pile.Factory.Create<TreeDataGrid>();
+	public Well<TreeDataGrid> PluginListWell { get; } = Well.Factory.Create<TreeDataGrid>();
 
 	public FlatTreeDataGridSource<PluginPackViewModel>? PluginsSource { get; private set; }
 
-	public PluginPackViewModel[]? SelectedPlugin { get; set; }
+	public PluginPackViewModel? SelectedPlugin { get; set; }
 
 	public Command? OpenPluginFolderCommand { get; set; }
 	public Command? UpdatePluginsCommand { get; set; }
 
 	public bool CanOpenPluginFolder { get; set; }
+	public bool CanUpdatePlugins { get; set; } = true;
 	public bool IsOpenAllPluginFolder { get; set; } = true;
 	public bool IsUpdatingPlugins { get; set; }
 
@@ -109,6 +111,37 @@ public class PluginPageViewModel
 			{
 				await UpdatePluginsProgressivelyAsync().ConfigureAwait(true);
 			}
+
+			// 選択変更イベント登録
+			await PluginListPile.RentAsync((list) =>
+				{
+					if (list.RowSelection is null)
+						return default;
+
+					list.RowSelection.SelectionChanged += (s, e) =>
+					{
+						if (
+							list.RowSelection.SelectedItem
+							is not PluginPackViewModel selected
+						)
+						{
+							return;
+						}
+
+						SelectedPlugin = selected;
+
+						CanOpenPluginFolder =
+							IsOpenAllPluginFolder
+							? CanOpenPluginFolder
+							: SelectedPlugin is not null;
+
+						OpenPluginFolderCommand?.ChangeCanExecute();
+					};
+
+					return default;
+				}
+			)
+			.ConfigureAwait(true);
 
 			IsUpdatingPlugins = false;
 		});
@@ -291,11 +324,12 @@ public class PluginPageViewModel
 			if (!PathManager.TryGetPluginFolder(ProfileVm.AppPath, out var folder))
 				return;
 
-			if(!IsOpenAllPluginFolder){
-				if(SelectedPlugin is null or [])
+			if (!IsOpenAllPluginFolder)
+			{
+				if (SelectedPlugin is null)
 					return;
 
-				var pluginFolder = Path.GetDirectoryName(SelectedPlugin[0].InstalledPath);
+				var pluginFolder = Path.GetDirectoryName(SelectedPlugin.InstalledPath);
 				if (pluginFolder is null || !Directory.Exists(pluginFolder))
 					return;
 
@@ -339,6 +373,9 @@ public class PluginPageViewModel
 
 
 		CanOpenPluginFolder = PathManager.TryGetPluginFolder(ProfileVm.AppPath, out _);
+		OpenPluginFolderCommand?.ChangeCanExecute();
+		CanUpdatePlugins = CanOpenPluginFolder;
+		UpdatePluginsCommand?.ChangeCanExecute();
 
 		return default;
 	}
@@ -396,12 +433,12 @@ public class PluginPageViewModel
 
 	[PropertyChanged(nameof(SelectedPlugin))]
 	[SuppressMessage("", "IDE0051")]
-	private ValueTask SelectedPluginChangedAsync(PluginPackViewModel[]? value)
+	private ValueTask SelectedPluginChangedAsync(PluginPackViewModel? value)
 	{
-		if (value is null or [])
+		if (value is null)
 			return default;
 
-		Debug.WriteLine($"Selected Plugin: {value[0].Name}, {value[0]}");
+		Debug.WriteLine($"Selected Plugin: {value.Name}, {value}");
 		return default;
 	}
 
@@ -415,7 +452,7 @@ public class PluginPageViewModel
 	}
 
 	[PropertyChanged(nameof(PluginsSource))]
-	[SuppressMessage("","IDE0051")]
+	[SuppressMessage("", "IDE0051")]
 	private async ValueTask PluginsSourceChangedAsync(
 		FlatTreeDataGridSource<PluginPackViewModel>? value
 	)
@@ -429,6 +466,15 @@ public class PluginPageViewModel
 			list.UpdateLayout();
 			return ValueTask.CompletedTask;
 		}).ConfigureAwait(true);
+	}
+
+	[PropertyChanged(nameof(IsOpenAllPluginFolder))]
+	[SuppressMessage("", "IDE0051")]
+	private ValueTask IsOpenAllPluginFolderChangedAsync(bool value)
+	{
+		CanOpenPluginFolder = value || SelectedPlugin is not null;
+		OpenPluginFolderCommand?.ChangeCanExecute();
+		return default;
 	}
 
 

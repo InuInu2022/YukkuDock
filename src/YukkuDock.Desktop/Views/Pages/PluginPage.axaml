@@ -40,7 +40,7 @@
           Margin="5,2,0,2"
           HorizontalAlignment="Right"
           Command="{Binding UpdatePluginsCommand}"
-          IsEnabled="{Binding CanOpenPluginFolder}"
+          IsEnabled="{Binding CanUpdatePlugins}"
           >
           <ToolTip.Tip>再読み込み</ToolTip.Tip>
           <StackPanel Orientation="Horizontal">
@@ -66,7 +66,6 @@
                 GroupName="OpenGroup"
                 IsChecked="{Binding !IsOpenAllPluginFolder}"
                 Text="選択中のプラグイン"
-                IsEnabled="False"
                 />
               <ui:RadioMenuFlyoutItem
                 GroupName="OpenGroup"
