@@ -20,7 +20,8 @@ public class PluginPackViewModel
 	public DateTime LastWriteTimeUtc { get; set; }
 	public bool IsIgnoredBackup { get; set; }
 	public bool IsEnabled { get; set; }
-	public string LastWriteTimeText => LastWriteTimeUtc.ToString("u");
+	public string LastWriteTimeText
+		=> LastWriteTimeUtc.ToLocalTime().ToString("u");
 
 	public PluginPackViewModel(PluginPack pack)
 	{
