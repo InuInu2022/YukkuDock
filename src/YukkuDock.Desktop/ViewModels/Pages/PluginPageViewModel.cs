@@ -367,17 +367,20 @@ public class PluginPageViewModel : IDisposable
 			() => !IsUpdatingPlugins
 		);
 
-		BackupPluginPacksCommand = Command.Factory.CreateEasy(async () =>
+		BackupPluginPacksCommand = Command.Factory.Create(async () =>
 		{
 			if (ProfileVm is null || ProfileVm.PluginPacks is null || ProfileVm.PluginPacks.Count == 0)
 				return;
 
+			IsUpdatingPlugins = true;
+			UpdatePluginsCommand?.ChangeCanExecute();
+			BackupPluginPacksCommand?.ChangeCanExecute();
+
 			List<PluginPack> packs = IsBackupAllPlugins
-				? new List<PluginPack>(ProfileVm.PluginPacks)
+				? [.. ProfileVm.PluginPacks]
 				: SelectedPlugin is null
-					? new List<PluginPack>()
-					: new List<PluginPack>([SelectedPlugin.PluginPack]);
-			;
+					? [] : new List<PluginPack>([SelectedPlugin.PluginPack]);
+
 			var result = await BackupManager
 				.TryBackupPluginPacksAsync(
 					profileService,
@@ -411,7 +414,13 @@ public class PluginPageViewModel : IDisposable
 					}
 				)
 				.ConfigureAwait(true);
-		});
+
+			IsUpdatingPlugins = false;
+			UpdatePluginsCommand?.ChangeCanExecute();
+			BackupPluginPacksCommand?.ChangeCanExecute();
+		},
+			() => !IsUpdatingPlugins
+		);
 	}
 
 	[PropertyChanged(nameof(ProfileVm))]

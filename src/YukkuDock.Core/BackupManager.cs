@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 
 using YukkuDock.Core.Models;
 
@@ -6,7 +7,7 @@ using YukkuDock.Core.Services;
 
 namespace YukkuDock.Core;
 
-public static class BackupManager
+public static partial class BackupManager
 {
 
 
@@ -124,7 +125,10 @@ public static class BackupManager
 				if (plugin is null) continue;
 
 				var now = DateTime.Now;
-				var backupFileName = $"{plugin.Name}_{now:yyyyMMdd_HHmmss}.zip";
+				var reg = GetBackupFileRegex();
+				string v = Path.GetFileNameWithoutExtension(
+					reg.Replace(plugin.Name, "", 1));
+				var backupFileName = $"{plugin.FolderName}_{v}_{now:yyyyMMdd_HHmmss}.zip";
 				var backupFilePath = Path.Combine(backupFolder, backupFileName);
 
 				if (File.Exists(backupFilePath))
@@ -158,7 +162,7 @@ public static class BackupManager
 					ZipFile.CreateFromDirectory(
 						parent!,
 						destFile.FullName,
-						CompressionLevel.Optimal,
+						CompressionLevel.Fastest,
 						includeBaseDirectory: true
 					);
 				}, cancellationToken)
@@ -174,4 +178,6 @@ public static class BackupManager
 		}
 	}
 
+	[GeneratedRegex(@"\.disabled$", RegexOptions.IgnoreCase)]
+	private static partial Regex GetBackupFileRegex();
 }
