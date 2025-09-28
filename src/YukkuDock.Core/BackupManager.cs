@@ -101,6 +101,7 @@ public static partial class BackupManager
 	{
 		//var profileFolder = profileService.GetProfileFolder(profile.Id);
 		var backupFolder = profileService.GetPluginPacksBackupFolder(profile.Id);
+		var parentFolder = Directory.GetParent(backupFolder);
 
 		try
 		{
@@ -126,9 +127,9 @@ public static partial class BackupManager
 
 				var now = DateTime.Now;
 				var reg = GetBackupFileRegex();
-				string v = Path.GetFileNameWithoutExtension(
+				string pName = Path.GetFileNameWithoutExtension(
 					reg.Replace(plugin.Name, "", 1));
-				var backupFileName = $"{plugin.FolderName}_{v}_{now:yyyyMMdd_HHmmss}.zip";
+				var backupFileName = $"{plugin.FolderName}_{pName}_{now:yyyyMMdd_HHmmss}.zip";
 				var backupFilePath = Path.Combine(backupFolder, backupFileName);
 
 				if (File.Exists(backupFilePath))
@@ -164,6 +165,16 @@ public static partial class BackupManager
 						destFile.FullName,
 						CompressionLevel.Fastest,
 						includeBaseDirectory: true
+					);
+
+					//一つ上の階層にも上書き保存
+					File.Copy(
+						destFile.FullName,
+						Path.Combine(
+							parentFolder!.FullName,
+							//日付除去
+							$"{plugin.FolderName}_{pName}.zip"),
+						overwrite: true
 					);
 				}, cancellationToken)
 				.ConfigureAwait(false);
