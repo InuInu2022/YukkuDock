@@ -68,15 +68,23 @@ public static partial class BackupManager
 			{
 				foreach (var file in Directory.EnumerateFiles(sourceDir))
 				{
-					// entryName: GUID/xxx/yyy
-					var entryName = Path.Combine(
-						guidFolderName,
-						Path.GetRelativePath(baseDir, file)
-					);
+					// PluginPacks/Backup フォルダ配下は除外
+					var relativePath = Path.GetRelativePath(baseDir, file);
+					if (relativePath.Contains("PluginPacks" + Path.DirectorySeparatorChar + "Backup" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+					{
+						continue;
+					}
+					var entryName = Path.Combine(guidFolderName, relativePath);
 					archive.CreateEntryFromFile(file, entryName, CompressionLevel.Fastest);
 				}
 				foreach (var dir in Directory.EnumerateDirectories(sourceDir))
 				{
+					// PluginPacks/Backup フォルダ自体も除外
+					var relativeDir = Path.GetRelativePath(baseDir, dir);
+					if (relativeDir.Contains("PluginPacks" + Path.DirectorySeparatorChar + "Backup", StringComparison.OrdinalIgnoreCase))
+					{
+						continue;
+					}
 					AddDirectory(dir, baseDir, guidFolderName);
 				}
 			}
