@@ -1,5 +1,6 @@
 using Jab;
 using YukkuDock.Core.Services;
+using YukkuDock.Desktop.Services;
 using YukkuDock.Desktop.ViewModels;
 
 namespace YukkuDock.Desktop.Container;
@@ -7,6 +8,7 @@ namespace YukkuDock.Desktop.Container;
 [ServiceProvider]
 [Singleton<ISettingsService, SettingsService>]
 [Singleton<IProfileService, ProfileService>]
+[Singleton<IDialogService, DialogService>]
 [Transient<MainWindowViewModel>]
 [Transient<YukkuDock.Core.Models.Profile>]
 [Transient<ProfileViewModel>]
