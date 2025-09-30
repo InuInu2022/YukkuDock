@@ -13,6 +13,7 @@ using YukkuDock.Core;
 using YukkuDock.Core.Models;
 using YukkuDock.Core.Services;
 using YukkuDock.Desktop.Extensions;
+using YukkuDock.Desktop.Services;
 
 namespace YukkuDock.Desktop.ViewModels;
 
@@ -47,13 +48,18 @@ public partial class MainWindowViewModel
 
 	readonly ISettingsService settingsService;
 	readonly IProfileService profileService;
+	readonly IDialogService dialogService;
 	Settings? _currentSettings;
 
-	public MainWindowViewModel(ISettingsService settingsService, IProfileService profileService)
+	public MainWindowViewModel(
+		ISettingsService settingsService,
+		IProfileService profileService,
+		IDialogService dialogService)
 	{
 		IsLoaded = true;
 		this.settingsService = settingsService;
 		this.profileService = profileService;
+		this.dialogService = dialogService;
 		Profiles = [];
 
 		MainWindowWell.Add(
@@ -264,25 +270,14 @@ public partial class MainWindowViewModel
 			if (!result.Success)
 			{
 				// ユーザーに通知
-				var td = new TaskDialog
-				{
-					Title = "バックアップエラー",
-					IconSource = new SymbolIconSource { Symbol = Symbol.Important },
-					Header = $"{result.Exception?.Message ?? "不明なエラー"}",
-					SubHeader =
-						$"バックアップファイルが作成できません。再度実行してください。\n {result.Exception?.Message ?? ""}",
-					ShowProgressBar = false,
-					Buttons = { TaskDialogButton.OKButton },
-				};
 
-				await MainWindowPile
-					.RentAsync(owner =>
-					{
-						td.XamlRoot = TopLevel.GetTopLevel(owner);
-						return default;
-					})
-					.ConfigureAwait(true);
-				await td.ShowAsync().ConfigureAwait(true);
+				await dialogService.ShowErrorAsync(
+					MainWindowPile,
+					"バックアップエラー",
+					header: $"{result.Exception?.Message ?? "不明なエラー"}",
+					subHeader: $"バックアップファイルが作成できません。再度実行してください。\n {result.Exception?.Message ?? ""}",
+					content: null
+				).ConfigureAwait(true);
 			}
 
 			await MainWindowPile
@@ -303,34 +298,21 @@ public partial class MainWindowViewModel
 
 		DeleteProfileCommand = Command.Factory.CreateEasy(async () =>
 		{
-			var td = new TaskDialog
-			{
-				//Title = "プロファイルの削除",
-				IconSource = new SymbolIconSource { Symbol = Symbol.Important },
-				Header = "ゴミ箱に移動しますか？",
-				SubHeader = $"プロファイル 「{SelectedItem?.Name}」をゴミ箱に移動しますか？",
-				Content = $"""
+			await dialogService.ShowDeferralAsync(
+				MainWindowPile,
+				"プロファイルの削除",
+				header: "ゴミ箱に移動しますか？",
+				deferralEvent: DeleteProfileAsync,
+				subHeader: $"プロファイル 「{SelectedItem?.Name}」をゴミ箱に移動しますか？",
+				content: $"""
 				削除プロファイル
 
 				- 名前: {SelectedItem?.Name}
 				- YMM4へのパス: {SelectedItem?.AppPath}
 				- YMM4バージョン: {SelectedItem?.AppVersion}
 				- 説明: {SelectedItem?.Description}
-				""",
-				ShowProgressBar = false,
-				Buttons = { TaskDialogButton.YesButton, TaskDialogButton.NoButton },
-			};
-
-			td.Closing += DeleteProfileAsync;
-
-			await MainWindowPile
-				.RentAsync(owner =>
-				{
-					td.XamlRoot = TopLevel.GetTopLevel(owner);
-					return default;
-				})
-				.ConfigureAwait(true);
-			await td.ShowAsync().ConfigureAwait(true);
+				"""
+			).ConfigureAwait(true);
 		});
 	}
 

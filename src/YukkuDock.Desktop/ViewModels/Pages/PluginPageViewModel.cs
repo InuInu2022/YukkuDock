@@ -11,6 +11,7 @@ using YukkuDock.Core;
 using YukkuDock.Core.Models;
 using YukkuDock.Core.Services;
 using YukkuDock.Desktop.Extensions;
+using YukkuDock.Desktop.Services;
 using YukkuDock.Desktop.Views;
 
 namespace YukkuDock.Desktop.ViewModels;
@@ -37,12 +38,17 @@ public class PluginPageViewModel : IDisposable
 
 	public Command? BackupPluginPacksCommand { get; set; }
 
+	public Command? RemovePluginCommand { get; set; }
+
 	public bool CanOpenPluginFolder { get; set; }
 	public bool CanUpdatePlugins { get; set; } = true;
 	public bool IsOpenAllPluginFolder { get; set; } = true;
 	public bool IsUpdatingPlugins { get; set; }
 
+	public bool CanBackupPlugins { get; set; }
 	public bool IsBackupAllPlugins { get; set; }
+
+	public bool CanRemovePlugins { get; set; }
 
 	public int LoadPluginsPerFolder { get; set; } = 10;
 
@@ -81,76 +87,88 @@ public class PluginPageViewModel : IDisposable
 
 	readonly IProfileService profileService;
 	readonly ISettingsService settingsService;
+	readonly IDialogService dialogService;
+
 	private bool _disposedValue;
 
-
-	public PluginPageViewModel(IProfileService profileService, ISettingsService settingsService)
+	public PluginPageViewModel(
+		IProfileService profileService,
+		ISettingsService settingsService,
+		IDialogService dialogService
+	)
 	{
 		this.profileService = profileService;
 		this.settingsService = settingsService;
+		this.dialogService = dialogService;
 
 		SetCommands();
 
-		PageWell.Add("Loaded", async () =>
-		{
-			if (ProfileVm is null)
-				return;
-
-			IsUpdatingPlugins = true;
-			LoadPluginData(ProfileVm.PluginPacks);
-
-			// キャッシュ判定
-			if (ProfilePluginCache.TryGetValue(ProfileVm.AppPath, out var cached))
+		PageWell.Add(
+			"Loaded",
+			async () =>
 			{
-				ProfileVm.PluginPacks = cached;
-				await UIThread.InvokeAsync(() =>
+				if (ProfileVm is null)
+					return;
+
+				IsUpdatingPlugins = true;
+				LoadPluginData(ProfileVm.PluginPacks);
+
+				// キャッシュ判定
+				if (ProfilePluginCache.TryGetValue(ProfileVm.AppPath, out var cached))
 				{
-					LoadPluginData(cached);
-					IsUpdatingPlugins = false;
-					return default;
-				}).ConfigureAwait(true);
-				return;
-			}
-
-			// 逐次読込
-			if (ProfileVm.PluginPacks is null || ProfileVm.PluginPacks.Count == 0)
-			{
-				await UpdatePluginsProgressivelyAsync().ConfigureAwait(true);
-			}
-
-			// 選択変更イベント登録
-			await PluginListPile.RentAsync((list) =>
-				{
-					if (list.RowSelection is null)
-						return default;
-
-					list.RowSelection.SelectionChanged += (s, e) =>
-					{
-						if (
-							list.RowSelection.SelectedItem
-							is not PluginPackViewModel selected
-						)
+					ProfileVm.PluginPacks = cached;
+					await UIThread
+						.InvokeAsync(() =>
 						{
-							return;
-						}
-
-						SelectedPlugin = selected;
-
-						CanOpenPluginFolder =
-							IsOpenAllPluginFolder
-							? CanOpenPluginFolder
-							: SelectedPlugin is not null;
-
-						OpenPluginFolderCommand?.ChangeCanExecute();
-					};
-
-					return default;
+							LoadPluginData(cached);
+							IsUpdatingPlugins = false;
+							return default;
+						})
+						.ConfigureAwait(true);
+					return;
 				}
-			)
-			.ConfigureAwait(true);
 
-			IsUpdatingPlugins = false;
-		});
+				// 逐次読込
+				if (ProfileVm.PluginPacks is null || ProfileVm.PluginPacks.Count == 0)
+				{
+					await UpdatePluginsProgressivelyAsync().ConfigureAwait(true);
+				}
+
+				// 選択変更イベント登録
+				await PluginListPile
+					.RentAsync(
+						(list) =>
+						{
+							if (list.RowSelection is null)
+								return default;
+
+							list.RowSelection.SelectionChanged += (s, e) =>
+							{
+								if (
+									list.RowSelection.SelectedItem
+									is not PluginPackViewModel selected
+								)
+								{
+									return;
+								}
+
+								SelectedPlugin = selected;
+
+								CanOpenPluginFolder = IsOpenAllPluginFolder
+									? CanOpenPluginFolder
+									: SelectedPlugin is not null;
+
+								OpenPluginFolderCommand?.ChangeCanExecute();
+							};
+
+							return default;
+						}
+					)
+					.ConfigureAwait(true);
+
+				IsUpdatingPlugins = false;
+			}
+		);
 	}
 
 	public async ValueTask InitializePluginsAsync()
@@ -185,14 +203,27 @@ public class PluginPageViewModel : IDisposable
 		{
 			Columns =
 			{
-				new TemplateColumn<PluginPackViewModel>("有効", IsEnabledTemplate, options:new(){
-					CompareAscending = static (x, y) => x?.IsEnabled.CompareTo(y?.IsEnabled) ?? 0,
-					CompareDescending = static (x, y) => y?.IsEnabled.CompareTo(x?.IsEnabled) ?? 0,
-				} ),
+				new TemplateColumn<PluginPackViewModel>(
+					"有効",
+					IsEnabledTemplate,
+					options: new()
+					{
+						CompareAscending = static (x, y) =>
+							x?.IsEnabled.CompareTo(y?.IsEnabled) ?? 0,
+						CompareDescending = static (x, y) =>
+							y?.IsEnabled.CompareTo(x?.IsEnabled) ?? 0,
+					}
+				),
 				new TextColumn<PluginPackViewModel, string>("フォルダ", x => x.FolderName),
 				new TextColumn<PluginPackViewModel, string>("プラグイン名", x => x.Name),
-				new TextColumn<PluginPackViewModel, string>("バージョン", static x => x.Version != null ? x.Version.ToString() : "?"),
-				new TextColumn<PluginPackViewModel, string>("最終更新日時", x => x.LastWriteTimeText),
+				new TextColumn<PluginPackViewModel, string>(
+					"バージョン",
+					static x => x.Version != null ? x.Version.ToString() : "?"
+				),
+				new TextColumn<PluginPackViewModel, string>(
+					"最終更新日時",
+					x => x.LastWriteTimeText
+				),
 				new TextColumn<PluginPackViewModel, string>("作者", x => x.Author),
 			},
 		};
@@ -256,18 +287,26 @@ public class PluginPageViewModel : IDisposable
 			// 段階的ロード実行
 			var profileId = ProfileVm.Profile.Id;
 			var pluginPacks = await PluginManager
-				.LoadPluginsProgressivelyAsync(appPath, folder, profileId, LoadPluginsPerFolder, progress)
+				.LoadPluginsProgressivelyAsync(
+					appPath,
+					folder,
+					profileId,
+					LoadPluginsPerFolder,
+					progress
+				)
 				.ConfigureAwait(false);
 
 			// キャッシュ・ProfileVmへ反映
-			await UIThread.InvokeAsync(() =>
-			{
-				ProfileVm.PluginPacks = pluginPacks;
-				ProfilePluginCache[ProfileVm.AppPath] = pluginPacks;
-				IsUpdatingPlugins = false;
-				UpdatePluginsCommand?.ChangeCanExecute();
-				return default;
-			}).ConfigureAwait(false);
+			await UIThread
+				.InvokeAsync(() =>
+				{
+					ProfileVm.PluginPacks = pluginPacks;
+					ProfilePluginCache[ProfileVm.AppPath] = pluginPacks;
+					IsUpdatingPlugins = false;
+					UpdatePluginsCommand?.ChangeCanExecute();
+					return default;
+				})
+				.ConfigureAwait(false);
 		}
 		catch (Exception ex)
 		{
@@ -367,60 +406,134 @@ public class PluginPageViewModel : IDisposable
 			() => !IsUpdatingPlugins
 		);
 
-		BackupPluginPacksCommand = Command.Factory.Create(async () =>
-		{
-			if (ProfileVm is null || ProfileVm.PluginPacks is null || ProfileVm.PluginPacks.Count == 0)
-				return;
-
-			IsUpdatingPlugins = true;
-			UpdatePluginsCommand?.ChangeCanExecute();
-			BackupPluginPacksCommand?.ChangeCanExecute();
-
-			List<PluginPack> packs = IsBackupAllPlugins
-				? [.. ProfileVm.PluginPacks]
-				: SelectedPlugin is null
-					? [] : new List<PluginPack>([SelectedPlugin.PluginPack]);
-
-			var result = await BackupManager
-				.TryBackupPluginPacksAsync(
-					profileService,
-					ProfileVm.Profile,
-					packs
-				)
-				.ConfigureAwait(true);
-
-			if (!result.Success)
+		BackupPluginPacksCommand = Command.Factory.Create(
+			async () =>
 			{
-				Debug.WriteLine(
-					"プラグインのバックアップに失敗しました。" + result.Exception?.Message ?? ""
-				);
-			}
-
-			var folder = new DirectoryInfo(
-				profileService.GetPluginPacksBackupFolder(ProfileVm.Profile.Id)
-			);
-
-			await PagePile
-				.RentAsync(
-					async (page) =>
-					{
-						var topLevel = TopLevel.GetTopLevel(page);
-						if (topLevel is null)
-							return;
-
-						await topLevel
-							.Launcher.LaunchDirectoryInfoAsync(folder)
-							.ConfigureAwait(true);
-					}
+				if (
+					ProfileVm is null
+					|| ProfileVm.PluginPacks is null
+					|| ProfileVm.PluginPacks.Count == 0
 				)
-				.ConfigureAwait(true);
+				{
+					return;
+				}
 
-			IsUpdatingPlugins = false;
-			UpdatePluginsCommand?.ChangeCanExecute();
-			BackupPluginPacksCommand?.ChangeCanExecute();
-		},
+				IsUpdatingPlugins = true;
+				UpdatePluginsCommand?.ChangeCanExecute();
+				BackupPluginPacksCommand?.ChangeCanExecute();
+
+				List<PluginPack> packs =
+					IsBackupAllPlugins ? [.. ProfileVm.PluginPacks]
+					: SelectedPlugin is null ? []
+					: new List<PluginPack>([SelectedPlugin.PluginPack]);
+
+				var result = await BackupManager
+					.TryBackupPluginPacksAsync(profileService, ProfileVm.Profile, packs)
+					.ConfigureAwait(true);
+
+				if (!result.Success)
+				{
+					Debug.WriteLine(
+						"プラグインのバックアップに失敗しました。" + result.Exception?.Message
+					);
+					await dialogService.ShowErrorAsync(
+						PagePile,
+						"バックアップエラー",
+						header: $"{result.Exception?.Message ?? "不明なエラー"}",
+						subHeader: $"プラグインのバックアップに失敗しました。再度実行してください。\n {result.Exception?.Message ?? ""}",
+						content: null
+					).ConfigureAwait(true);
+				}
+
+				var folder = new DirectoryInfo(
+					profileService.GetPluginPacksBackupFolder(ProfileVm.Profile.Id)
+				);
+
+				await PagePile
+					.RentAsync(
+						async (page) =>
+						{
+							var topLevel = TopLevel.GetTopLevel(page);
+							if (topLevel is null)
+								return;
+
+							await topLevel
+								.Launcher.LaunchDirectoryInfoAsync(folder)
+								.ConfigureAwait(true);
+						}
+					)
+					.ConfigureAwait(true);
+
+				IsUpdatingPlugins = false;
+				UpdatePluginsCommand?.ChangeCanExecute();
+				BackupPluginPacksCommand?.ChangeCanExecute();
+			},
 			() => !IsUpdatingPlugins
 		);
+
+		RemovePluginCommand = Command.Factory.Create(RemovePluginAsync, () => CanRemovePlugins);
+	}
+
+	[SuppressMessage("Usage", "SMA0040")]
+	async ValueTask RemovePluginAsync()
+	{
+		if (
+			ProfileVm is null
+			|| ProfileVm.PluginPacks is null
+			|| ProfileVm.PluginPacks.Count == 0
+			|| SelectedPlugin is null
+		)
+		{
+			return;
+		}
+
+		CanRemovePlugins = false;
+		RemovePluginCommand?.ChangeCanExecute();
+
+		//念の為最新のバックアップを取る
+		List<PluginPack> packs = [SelectedPlugin.PluginPack];
+		var result = await BackupManager
+			.TryBackupPluginPacksAsync(profileService, ProfileVm.Profile, packs)
+			.ConfigureAwait(true);
+		if (!result.Success)
+		{
+			Debug.WriteLine("プラグインのバックアップに失敗しました。" + result.Exception?.Message);
+			CanRemovePlugins = true;
+			RemovePluginCommand?.ChangeCanExecute();
+			return;
+		}
+
+		//ゴミ箱へ移動
+		if (File.Exists(SelectedPlugin.InstalledPath))
+		{
+			var folder = Path.GetDirectoryName(SelectedPlugin.InstalledPath);
+			if (folder is not null)
+			{
+				var result2 = await RecycleBinManager.TryMoveAsync(folder).ConfigureAwait(false);
+				if (!result2.Success)
+				{
+					Debug.WriteLine(
+						"プラグインの削除に失敗しました。" + result2.Exception?.Message
+					);
+					await dialogService
+						.ShowErrorAsync(
+							PagePile,
+							"削除エラー",
+							header: $"{result2.Exception?.Message ?? "不明なエラー"}",
+							subHeader: $"プラグインの削除に失敗しました。再度実行してください。\n {result2.Exception?.Message ?? ""}",
+							content: null
+						)
+						.ConfigureAwait(true);
+				}
+			}
+		}
+
+		//プラグイン一覧リロード
+		await UpdatePluginsProgressivelyAsync()
+			.ConfigureAwait(true);
+
+		CanRemovePlugins = true;
+		RemovePluginCommand?.ChangeCanExecute();
 	}
 
 	[PropertyChanged(nameof(ProfileVm))]
@@ -431,7 +544,6 @@ public class PluginPageViewModel : IDisposable
 			return default;
 
 		ProfileVm = value;
-
 
 		CanOpenPluginFolder = PathManager.TryGetPluginFolder(ProfileVm.AppPath, out _);
 		OpenPluginFolderCommand?.ChangeCanExecute();
@@ -494,12 +606,20 @@ public class PluginPageViewModel : IDisposable
 
 	[PropertyChanged(nameof(SelectedPlugin))]
 	[SuppressMessage("", "IDE0051")]
+	[SuppressMessage("Usage", "SMA0040")]
 	private ValueTask SelectedPluginChangedAsync(PluginPackViewModel? value)
 	{
 		if (value is null)
+		{
+			//未選択状態なら削除不可
+			CanRemovePlugins = false;
+			RemovePluginCommand?.ChangeCanExecute();
 			return default;
+		}
 
 		Debug.WriteLine($"Selected Plugin: {value.Name}, {value}");
+		CanRemovePlugins = true;
+		RemovePluginCommand?.ChangeCanExecute();
 		return default;
 	}
 
@@ -514,6 +634,7 @@ public class PluginPageViewModel : IDisposable
 
 	[PropertyChanged(nameof(PluginsSource))]
 	[SuppressMessage("", "IDE0051")]
+	[SuppressMessage("Usage", "SMA0040")]
 	private async ValueTask PluginsSourceChangedAsync(
 		FlatTreeDataGridSource<PluginPackViewModel>? value
 	)
@@ -521,16 +642,21 @@ public class PluginPageViewModel : IDisposable
 		if (value is null)
 			return;
 
-		await PluginListPile.RentAsync((list) =>
-		{
-			list.InvalidateVisual();
-			list.UpdateLayout();
-			return ValueTask.CompletedTask;
-		}).ConfigureAwait(true);
+		await PluginListPile
+			.RentAsync(
+				(list) =>
+				{
+					list.InvalidateVisual();
+					list.UpdateLayout();
+					return ValueTask.CompletedTask;
+				}
+			)
+			.ConfigureAwait(true);
 	}
 
 	[PropertyChanged(nameof(IsOpenAllPluginFolder))]
 	[SuppressMessage("", "IDE0051")]
+	[SuppressMessage("Usage", "SMA0040")]
 	private ValueTask IsOpenAllPluginFolderChangedAsync(bool value)
 	{
 		CanOpenPluginFolder = value || SelectedPlugin is not null;
@@ -565,5 +691,4 @@ public class PluginPageViewModel : IDisposable
 		Dispose(disposing: true);
 		GC.SuppressFinalize(this);
 	}
-
 }

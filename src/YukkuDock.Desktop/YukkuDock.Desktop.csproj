@@ -5,41 +5,31 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <PublishAot>false</PublishAot>
     <PublishSingleFile>true</PublishSingleFile>
     <PublishReadyToRun>false</PublishReadyToRun>
-
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <SatelliteResourceLanguages>en-US;ja-JP</SatelliteResourceLanguages>
-
     <DebuggerSupport>false</DebuggerSupport>
-
     <OptimizationPreference>Speed</OptimizationPreference>
     <SelfContained>true</SelfContained>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-
     <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
     <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
-
     <EventSourceSupport>false</EventSourceSupport>
     <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
     <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
     <StackTraceSupport>true</StackTraceSupport>
-
     <IlcInstructionSet>native</IlcInstructionSet>
     <IlcMaxVectorTBitWidth>512</IlcMaxVectorTBitWidth>
     <WarningsAsErrors>false</WarningsAsErrors>
     <SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
-
     <StripSymbols>true</StripSymbols>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
-
     <TrimMode>full</TrimMode>
     <TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>
-
     <!--
 
     <DebugSymbols>false</DebugSymbols>
@@ -49,7 +39,6 @@
 
     -->
   </PropertyGroup>
-
   <Target Name="RemovePublishDirBeforeBuild" BeforeTargets="BeforeBuild">
     <RemoveDir Directories="$(OutputPath)/publish/" />
     <Message Text="RemovePublishDirBeforeBuild" Importance="high" />
@@ -71,7 +60,6 @@
     <ZipDirectory SourceDirectory="$(OutputPath)/publish/" DestinationFile="$(OutputPath)/../../../../../../publish/$(AssemblyName)-$(RuntimeIdentifier)-v.$(Version).zip" Overwrite="true" />
     <Message Text="Actions After Publish" Importance="high" />
   </Target>
-
   <ItemGroup>
     <Content Include="../../README.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -89,13 +77,11 @@
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>
-
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
     <TrimmableAssembly Include="Avalonia.Themes.Fluent" />
-		<TrimmableAssembly Include="Avalonia.Themes.Default" />
+    <TrimmableAssembly Include="Avalonia.Themes.Default" />
     <TrimmerRootDescriptor Include="TrimRoot.xml" />
   </ItemGroup>
-
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>

@@ -231,7 +231,8 @@
 
             <Separator Height="1" Margin="5,5,5,0" />
 
-            <Button Command="{Binding DeleteProfileCommand}">
+            <Button Command="{Binding DeleteProfileCommand}"
+              Classes="danger">
               <StackPanel Orientation="Horizontal">
                 <ui:SymbolIcon
                   Margin="0,0,5,0"

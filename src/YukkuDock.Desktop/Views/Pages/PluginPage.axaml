@@ -85,8 +85,9 @@
 
         <SplitButton Margin="5,2,0,2"
           Command="{Binding BackupPluginPacksCommand}"
+          IsEnabled="{Binding CanBackupPlugins}"
           >
-          <ToolTip.Tip>※未実装：バックアップ</ToolTip.Tip>
+          <ToolTip.Tip>バックアップ</ToolTip.Tip>
           <SplitButton.Flyout>
             <ui:FAMenuFlyout>
               <!--  use the GroupName property to group radio items together  -->
@@ -112,7 +113,9 @@
         </SplitButton>
 
         <Button Margin="5,2,0,2"
-          IsEnabled="False"
+          IsEnabled="{Binding CanRemovePlugins}"
+          Classes="danger"
+          Command="{Binding RemovePluginCommand}"
           >
           <ToolTip.Tip>※未実装：削除</ToolTip.Tip>
           <StackPanel Orientation="Horizontal">

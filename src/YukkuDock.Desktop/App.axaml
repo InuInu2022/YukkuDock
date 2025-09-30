@@ -18,5 +18,35 @@
     <Application.Styles>
         <sty:FluentAvaloniaTheme />
         <StyleInclude Source="avares://Avalonia.Controls.TreeDataGrid/Themes/Generic.axaml"/>
+
+        <!-- 削除ボタン用のスタイル -->
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.083"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.083"/>
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <!-- Hover時 -->
+        <Style Selector="Button.danger:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}"/>
+
+        </Style>
+
+        <!-- 押下時 -->
+        <Style Selector="Button.danger:pressed">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}"/>
+        </Style>
+
+        <!-- 無効化時 -->
+        <Style Selector="Button.danger:disabled">
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorDisabledBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorDisabledBrush}"/>
+        </Style>
+
     </Application.Styles>
 </Application>
