@@ -138,7 +138,6 @@ public partial class MainWindowViewModel
 	{
 		OpenAppCommand = Command.Factory.Create(async () =>
 		{
-			IsAddButtonEnabled = false;
 			IsOpenAppButtonEnabled = false;
 
 			if (
@@ -153,7 +152,6 @@ public partial class MainWindowViewModel
 					subHeader: $"パス: {SelectedItem?.AppPath}",
 					content: null
 				).ConfigureAwait(true);
-				IsAddButtonEnabled = true;
 				IsOpenAppButtonEnabled = true;
 				return;
 			}
@@ -161,7 +159,6 @@ public partial class MainWindowViewModel
 			//起動後、1秒待つ
 			await Task.Delay(1000).ConfigureAwait(true);
 
-			IsAddButtonEnabled = true;
 			IsOpenAppButtonEnabled = true;
 		},
 			() => IsOpenAppButtonEnabled && SelectedItem?.IsAppExists is true
@@ -366,7 +363,6 @@ public partial class MainWindowViewModel
 		if (value?.IsAppExists is bool flag)
 		{
 			IsOpenAppButtonEnabled = flag;
-			IsAddButtonEnabled = flag;
 			//force update
 			await IsOpenAppButtonEnabledChangedAsync(flag)
 				.ConfigureAwait(true);
