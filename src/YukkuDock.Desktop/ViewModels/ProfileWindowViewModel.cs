@@ -5,6 +5,8 @@ using Epoxy;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
 using YukkuDock.Core.Services;
+using YukkuDock.Desktop.Extensions;
+using YukkuDock.Desktop.Services;
 using YukkuDock.Desktop.Views;
 
 namespace YukkuDock.Desktop.ViewModels;
@@ -13,6 +15,11 @@ namespace YukkuDock.Desktop.ViewModels;
 public partial class ProfileWindowViewModel
 {
 	public ProfileViewModel ProfileVm { get; set; }
+	public MainWindowViewModel MainWindowVm { get; private set; }
+
+	ILaunchService launchService;
+
+
 	public int SelectedIndex { get; set; }
 	public PageItem? SelectedContent { get; set; }
 
@@ -25,6 +32,8 @@ public partial class ProfileWindowViewModel
 	public Well<AppWindow> WindowWell { get; } = Well.Factory.Create<AppWindow>();
 
 	public Command? CloseCommand { get; set; }
+
+	public Command? OpenAppCommand { get; set; }
 	public bool IsClosable { get; set; } = true;
 
 	public Command? SelectAppPathCommand { get; set; }
@@ -43,15 +52,23 @@ public partial class ProfileWindowViewModel
 
 	readonly IProfileService profileService;
 	readonly ISettingsService settingsService;
+	readonly IDialogService dialogService;
+
 
 	public ProfileWindowViewModel(
 		ProfileViewModel profileVm,
 		IProfileService profileService,
-		ISettingsService settingsService
+		ISettingsService settingsService,
+		IDialogService dialogService,
+		ILaunchService launchService,
+		MainWindowViewModel mainWindowViewModel
 	)
 	{
 		this.profileService = profileService;
 		this.settingsService = settingsService;
+		this.dialogService = dialogService;
+		this.MainWindowVm = mainWindowViewModel;
+		this.launchService = launchService;
 
 		ProfileVm = profileVm;
 		WindowTitle = "読み込み中... - YukkuDock";
@@ -92,6 +109,36 @@ public partial class ProfileWindowViewModel
 		);
 		SelectAppPathCommand = Command.Factory.Create(LoadApplicationAsync);
 		CloseCommand = Command.Factory.Create(SaveProfileAndCloseAsync, () => IsClosable);
+		OpenAppCommand = Command.Factory.CreateEasy(
+			async () =>
+			{
+				if (!File.Exists(ProfileVm.AppPath))
+				{
+					await ShowLaunchFailureDialogAsync()
+						.ConfigureAwait(true);
+					return;
+				}
+
+				if (!launchService.TryLaunch(ProfileVm.AppPath))
+				{
+					await ShowLaunchFailureDialogAsync()
+						.ConfigureAwait(true);
+				}
+
+				async Task ShowLaunchFailureDialogAsync()
+				{
+					await dialogService
+						.ShowErrorAsync(
+							WindowPile,
+							"アプリケーションの起動に失敗しました。",
+							header: "指定されたパスに実行ファイルが存在しないか、起動に失敗しました。",
+							subHeader: $"パス: {ProfileVm.AppPath}",
+							content: null
+						)
+						.ConfigureAwait(true);
+				}
+			}
+		);
 	}
 
 	async ValueTask LoadApplicationAsync()
@@ -110,11 +157,6 @@ public partial class ProfileWindowViewModel
 				if (result is not [])
 				{
 					ProfileVm.AppPath = result[0].Path.AbsolutePath;
-				}
-
-				if (window.DataContext is MainWindowViewModel mwVm)
-				{
-					mwVm.OpenAppCommand?.ChangeCanExecute();
 				}
 			})
 			.ConfigureAwait(true);

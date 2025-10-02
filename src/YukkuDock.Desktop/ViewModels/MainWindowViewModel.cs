@@ -49,17 +49,20 @@ public partial class MainWindowViewModel
 	readonly ISettingsService settingsService;
 	readonly IProfileService profileService;
 	readonly IDialogService dialogService;
+	readonly ILaunchService launchService;
 	Settings? _currentSettings;
 
 	public MainWindowViewModel(
 		ISettingsService settingsService,
 		IProfileService profileService,
-		IDialogService dialogService)
+		IDialogService dialogService,
+		ILaunchService launchService)
 	{
 		IsLoaded = true;
 		this.settingsService = settingsService;
 		this.profileService = profileService;
 		this.dialogService = dialogService;
+		this.launchService = launchService;
 		Profiles = [];
 
 		MainWindowWell.Add(
@@ -133,32 +136,30 @@ public partial class MainWindowViewModel
 	[SuppressMessage("Correctness", "SS002:DateTime.Now was referenced", Justification = "<保留中>")]
 	private void InitializeCommands()
 	{
-		OpenAppCommand = Command.Factory.Create(() =>
+		OpenAppCommand = Command.Factory.Create(async () =>
 		{
-			if (SelectedItem == null || string.IsNullOrWhiteSpace(SelectedItem.AppPath))
-			{
-				return default;
-			}
 			IsAddButtonEnabled = false;
 
-			try
+			if (
+				SelectedItem == null
+				|| !File.Exists(SelectedItem.AppPath)
+				|| !launchService.TryLaunch(SelectedItem.AppPath)
+			)
 			{
-				using var process = Process.Start(
-					new ProcessStartInfo { FileName = SelectedItem.AppPath, UseShellExecute = true }
-				);
-			}
-			catch (Exception ex)
-			{
-				Debug.WriteLine(ex.Message);
+				Debug.WriteLine("アプリケーションの起動に失敗しました。");
+				await dialogService.ShowErrorAsync(
+					MainWindowPile,
+					"アプリケーションの起動に失敗しました。",
+					header: "指定されたパスに実行ファイルが存在しないか、起動に失敗しました。",
+					subHeader: $"パス: {SelectedItem?.AppPath}",
+					content: null
+				).ConfigureAwait(true);
 				IsAddButtonEnabled = true;
+				return;
 			}
+
 			IsAddButtonEnabled = true;
-			return default;
-		} /*, () =>
-		{
-			return IsAddButtonEnabled && (SelectedItem?.IsAppExists ?? false);
-		}*/
-		);
+		});
 
 		AddCommand = Command.Factory.Create(
 			async () =>

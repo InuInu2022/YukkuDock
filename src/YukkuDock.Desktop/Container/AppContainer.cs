@@ -9,6 +9,7 @@ namespace YukkuDock.Desktop.Container;
 [Singleton<ISettingsService, SettingsService>]
 [Singleton<IProfileService, ProfileService>]
 [Singleton<IDialogService, DialogService>]
+[Singleton<ILaunchService, LaunchService>]
 [Transient<MainWindowViewModel>]
 [Transient<YukkuDock.Core.Models.Profile>]
 [Transient<ProfileViewModel>]
