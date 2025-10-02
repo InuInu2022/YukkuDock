@@ -110,7 +110,7 @@ public partial class MainWindowViewModel
 		{
 			foreach (var profile in profilesResult.Value ?? [])
 			{
-				var vm = new ProfileViewModel(profile, profileService);
+				var vm = new ProfileViewModel(profile, profileService, this);
 				Profiles.Add(vm);
 
 				//update version
@@ -178,7 +178,7 @@ public partial class MainWindowViewModel
 				var saveResult = await profileService.TrySaveAsync(newProfile).ConfigureAwait(true);
 				if (saveResult.Success)
 				{
-					var newProfileViewModel = new ProfileViewModel(newProfile, profileService);
+					var newProfileViewModel = new ProfileViewModel(newProfile, profileService, this);
 					Profiles.Add(newProfileViewModel);
 					SelectedItem = newProfileViewModel;
 				}
@@ -225,7 +225,7 @@ public partial class MainWindowViewModel
 			var saveResult = await profileService.TrySaveAsync(dupProfile).ConfigureAwait(true);
 			if (saveResult.Success)
 			{
-				var dupProfileViewModel = new ProfileViewModel(dupProfile, profileService);
+				var dupProfileViewModel = new ProfileViewModel(dupProfile, profileService, this);
 				Profiles.Add(dupProfileViewModel);
 				SelectedItem = dupProfileViewModel;
 			}
@@ -360,15 +360,18 @@ public partial class MainWindowViewModel
 
 	[PropertyChanged(nameof(SelectedItem))]
 	[SuppressMessage("", "IDE0051")]
-	private ValueTask SelectedItemChangedAsync(ProfileViewModel? value)
+	private async ValueTask SelectedItemChangedAsync(ProfileViewModel? value)
 	{
 		IsProfileSelected = value != null;
 		if (value?.IsAppExists is bool flag)
 		{
 			IsOpenAppButtonEnabled = flag;
 			IsAddButtonEnabled = flag;
+			Debug.WriteLine($"IsAppExists: {flag}, {IsOpenAppButtonEnabled}, {IsAddButtonEnabled}");
+			//force update
+			await IsOpenAppButtonEnabledChangedAsync(flag)
+				.ConfigureAwait(true);
 		}
-		return default;
 	}
 
 	[PropertyChanged(nameof(IsAddButtonEnabled))]
@@ -384,6 +387,7 @@ public partial class MainWindowViewModel
 	private ValueTask IsOpenAppButtonEnabledChangedAsync(bool value)
 	{
 		OpenAppCommand?.ChangeCanExecute();
+		Debug.WriteLine($"IsOpenAppButtonEnabledChangedAsync: {value}");
 		return default;
 	}
 }
