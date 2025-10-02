@@ -82,6 +82,18 @@
                   Classes="Critical Icon"
                   IsVisible="{Binding !ProfileVm.IsAppExists, FallbackValue=True}"
                   />
+                <ProgressBar
+                  VerticalAlignment="Bottom"
+                  Margin="50,10,50,3"
+                  IsIndeterminate="True"
+                  >
+                  <ProgressBar.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="!IsOpenAppButtonEnabled"/>
+                        <Binding Path="ProfileVm.IsAppExists"/>
+                    </MultiBinding>
+                  </ProgressBar.IsVisible>
+                </ProgressBar>
               </Grid>
             </AdornerLayer.Adorner>
             <StackPanel Orientation="Horizontal">

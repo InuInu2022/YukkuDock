@@ -139,12 +139,11 @@ public partial class MainWindowViewModel
 		OpenAppCommand = Command.Factory.Create(async () =>
 		{
 			IsAddButtonEnabled = false;
+			IsOpenAppButtonEnabled = false;
 
 			if (
 				SelectedItem == null
-				|| !File.Exists(SelectedItem.AppPath)
-				|| !launchService.TryLaunch(SelectedItem.AppPath)
-			)
+				|| !await launchService.TryLaunchWaitAsync(SelectedItem.AppPath).ConfigureAwait(true))
 			{
 				Debug.WriteLine("アプリケーションの起動に失敗しました。");
 				await dialogService.ShowErrorAsync(
@@ -155,11 +154,18 @@ public partial class MainWindowViewModel
 					content: null
 				).ConfigureAwait(true);
 				IsAddButtonEnabled = true;
+				IsOpenAppButtonEnabled = true;
 				return;
 			}
 
+			//起動後、1秒待つ
+			await Task.Delay(1000).ConfigureAwait(true);
+
 			IsAddButtonEnabled = true;
-		});
+			IsOpenAppButtonEnabled = true;
+		},
+			() => IsOpenAppButtonEnabled && SelectedItem?.IsAppExists is true
+		);
 
 		AddCommand = Command.Factory.Create(
 			async () =>
@@ -357,6 +363,11 @@ public partial class MainWindowViewModel
 	private ValueTask SelectedItemChangedAsync(ProfileViewModel? value)
 	{
 		IsProfileSelected = value != null;
+		if (value?.IsAppExists is bool flag)
+		{
+			IsOpenAppButtonEnabled = flag;
+			IsAddButtonEnabled = flag;
+		}
 		return default;
 	}
 

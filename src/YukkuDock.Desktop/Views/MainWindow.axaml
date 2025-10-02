@@ -151,7 +151,7 @@
             <Button
               Classes="accent"
               Command="{Binding OpenAppCommand}"
-              IsEnabled="{Binding SelectedItem.IsAppExists, FallbackValue=False}"
+              IsEnabled="{Binding IsOpenAppButtonEnabled, FallbackValue=False}"
               >
               <AdornerLayer.Adorner>
                 <Grid>
@@ -161,6 +161,18 @@
                     Classes="Critical Icon"
                     IsVisible="{Binding !SelectedItem.IsAppExists, FallbackValue=True}"
                     />
+                  <ProgressBar
+                    VerticalAlignment="Bottom"
+                    Margin="50,10,50,3"
+                    IsIndeterminate="True"
+                    >
+                    <ProgressBar.IsVisible>
+                      <MultiBinding Converter="{x:Static BoolConverters.And}">
+                          <Binding Path="!IsOpenAppButtonEnabled"/>
+                          <Binding Path="SelectedItem.IsAppExists"/>
+                      </MultiBinding>
+                    </ProgressBar.IsVisible>
+                  </ProgressBar>
                 </Grid>
               </AdornerLayer.Adorner>
               <StackPanel Orientation="Horizontal">

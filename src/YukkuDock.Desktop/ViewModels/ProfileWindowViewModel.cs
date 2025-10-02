@@ -17,7 +17,7 @@ public partial class ProfileWindowViewModel
 	public ProfileViewModel ProfileVm { get; set; }
 	public MainWindowViewModel MainWindowVm { get; private set; }
 
-	ILaunchService launchService;
+
 
 
 	public int SelectedIndex { get; set; }
@@ -35,6 +35,7 @@ public partial class ProfileWindowViewModel
 
 	public Command? OpenAppCommand { get; set; }
 	public bool IsClosable { get; set; } = true;
+	public bool IsOpenAppButtonEnabled { get; set; }
 
 	public Command? SelectAppPathCommand { get; set; }
 
@@ -54,6 +55,8 @@ public partial class ProfileWindowViewModel
 	readonly ISettingsService settingsService;
 	readonly IDialogService dialogService;
 
+	readonly ILaunchService launchService;
+
 
 	public ProfileWindowViewModel(
 		ProfileViewModel profileVm,
@@ -72,7 +75,6 @@ public partial class ProfileWindowViewModel
 
 		ProfileVm = profileVm;
 		WindowTitle = "読み込み中... - YukkuDock";
-
 
 		Pages =
 		[
@@ -104,6 +106,8 @@ public partial class ProfileWindowViewModel
 				//version update
 				ProfileVm.UpdateYmmVersion();
 
+				IsOpenAppButtonEnabled = ProfileVm.IsAppExists;
+
 				_isLoaded = true;
 			}
 		);
@@ -112,18 +116,18 @@ public partial class ProfileWindowViewModel
 		OpenAppCommand = Command.Factory.CreateEasy(
 			async () =>
 			{
-				if (!File.Exists(ProfileVm.AppPath))
+				IsOpenAppButtonEnabled = false;
+
+				if (!await launchService.TryLaunchWaitAsync(ProfileVm.AppPath).ConfigureAwait(true))
 				{
 					await ShowLaunchFailureDialogAsync()
 						.ConfigureAwait(true);
-					return;
 				}
 
-				if (!launchService.TryLaunch(ProfileVm.AppPath))
-				{
-					await ShowLaunchFailureDialogAsync()
-						.ConfigureAwait(true);
-				}
+				//起動後、1秒待つ
+				await Task.Delay(1000).ConfigureAwait(true);
+
+				IsOpenAppButtonEnabled = true;
 
 				async Task ShowLaunchFailureDialogAsync()
 				{
@@ -223,5 +227,13 @@ public partial class ProfileWindowViewModel
 		}
 
 		await LoadPageContentAsync(value).ConfigureAwait(true);
+	}
+
+	[PropertyChanged(nameof(IsOpenAppButtonEnabled))]
+	[SuppressMessage("","IDE0051")]
+	private ValueTask IsOpenAppButtonEnabledChangedAsync(bool value)
+	{
+		OpenAppCommand?.ChangeCanExecute();
+		return default;
 	}
 }
