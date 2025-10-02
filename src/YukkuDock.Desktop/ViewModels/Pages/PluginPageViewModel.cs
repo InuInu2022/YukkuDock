@@ -613,13 +613,17 @@ public class PluginPageViewModel : IDisposable
 		{
 			//未選択状態なら削除不可
 			CanRemovePlugins = false;
-			RemovePluginCommand?.ChangeCanExecute();
+			//全フォルダバックアップモード以外はバックアップ不可
+			if (!IsBackupAllPlugins)
+			{
+				CanBackupPlugins = false;
+			}
 			return default;
 		}
 
 		Debug.WriteLine($"Selected Plugin: {value.Name}, {value}");
 		CanRemovePlugins = true;
-		RemovePluginCommand?.ChangeCanExecute();
+		CanBackupPlugins = true;
 		return default;
 	}
 
@@ -661,6 +665,30 @@ public class PluginPageViewModel : IDisposable
 	{
 		CanOpenPluginFolder = value || SelectedPlugin is not null;
 		OpenPluginFolderCommand?.ChangeCanExecute();
+		return default;
+	}
+
+	[PropertyChanged(nameof(CanRemovePlugins))]
+	[SuppressMessage("", "IDE0051")]
+	private ValueTask CanRemovePluginsChangedAsync(bool value)
+	{
+		RemovePluginCommand?.ChangeCanExecute();
+		return default;
+	}
+
+	[PropertyChanged(nameof(CanBackupPlugins))]
+	[SuppressMessage("", "IDE0051")]
+	private ValueTask CanBackupPluginsChangedAsync(bool value)
+	{
+		BackupPluginPacksCommand?.ChangeCanExecute();
+		return default;
+	}
+
+	[PropertyChanged(nameof(IsBackupAllPlugins))]
+	[SuppressMessage("", "IDE0051")]
+	private ValueTask IsBackupAllPluginsChangedAsync(bool value)
+	{
+		CanBackupPlugins = value;
 		return default;
 	}
 
