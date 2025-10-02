@@ -367,7 +367,6 @@ public partial class MainWindowViewModel
 		{
 			IsOpenAppButtonEnabled = flag;
 			IsAddButtonEnabled = flag;
-			Debug.WriteLine($"IsAppExists: {flag}, {IsOpenAppButtonEnabled}, {IsAddButtonEnabled}");
 			//force update
 			await IsOpenAppButtonEnabledChangedAsync(flag)
 				.ConfigureAwait(true);
@@ -387,7 +386,6 @@ public partial class MainWindowViewModel
 	private ValueTask IsOpenAppButtonEnabledChangedAsync(bool value)
 	{
 		OpenAppCommand?.ChangeCanExecute();
-		Debug.WriteLine($"IsOpenAppButtonEnabledChangedAsync: {value}");
 		return default;
 	}
 }
