@@ -265,10 +265,11 @@ public static class PluginManager
 	{
 		var pluginDirs = folder.GetDirectories().Where(x => x.Exists).ToArray();
 		var appDir = Path.GetDirectoryName(appPath)!;
-		var pluginPacks = new ConcurrentBag<PluginPack>();
+		var pluginPacks = new ConcurrentDictionary<string, PluginPack>(StringComparer.OrdinalIgnoreCase);
 
 		var basicPlugins = new List<PluginPack>();
 
+		// 段階1: 基本情報を即座に収集・表示
 		foreach (var dir in pluginDirs)
 		{
 			if (cancellationToken.IsCancellationRequested)
@@ -285,14 +286,15 @@ public static class PluginManager
 
 				var basicPlugin = CreateBasicPluginPack(dllFile);
 				basicPlugin.ProfileId = profileId;
-				pluginPacks.Add(basicPlugin);
+				pluginPacks[dllFile.FullName] = basicPlugin;
 				basicPlugins.Add(basicPlugin);
 
 				progress?.Report(basicPlugin);
 			}
 		}
 
-		_ = Task.Run(
+		// 段階2: 詳細情報を取得して更新（完了を待つ）
+		await Task.Run(
 			() =>
 			{
 				using var detailPluginContext = new PluginLoadContext(appDir);
@@ -315,23 +317,22 @@ public static class PluginManager
 						if (detailedPlugin is not null)
 						{
 							detailedPlugin.ProfileId = profileId;
+							// Dictionaryを更新（キャッシュに反映される）
+							pluginPacks[dllFile.FullName] = detailedPlugin;
 							progress?.Report(detailedPlugin);
-						}
-						else
-						{
-							// 読み込み失敗時は何もしない
 						}
 					}
 					catch
 					{
-						// エラー時は何もしない
+						// エラー時は基本情報のまま
 					}
 				}
 			},
 			cancellationToken
-		);
+		).ConfigureAwait(false); // ← 完了を待つ
 
-		return [.. pluginPacks];
+		// 詳細情報が反映されたコレクションを返す
+		return pluginPacks.Values.ToList();
 	}
 
 	/// <summary>
@@ -465,7 +466,7 @@ public static class PluginManager
 	)]
 	static async ValueTask ProcessPluginDirectoryProgressivelyAsync(
 		DirectoryInfo dir,
-		ConcurrentBag<PluginPack> pluginPacks,
+		ConcurrentDictionary<string, PluginPack> pluginPacks, // ConcurrentBag → ConcurrentDictionary
 		PluginLoadContext pluginContext,
 		int maxPluginsPerFolder,
 		IProgress<PluginPack>? progress,
@@ -491,12 +492,22 @@ public static class PluginManager
 
 			// 段階1: 基本情報で即座に表示用オブジェクト作成
 			var basicPlugin = CreateBasicPluginPack(dllFile);
-			pluginPacks.Add(basicPlugin);
+			pluginPacks[dllFile.FullName] = basicPlugin; // Addではなくインデックスで追加
 			progress?.Report(basicPlugin);
 
-			// 段階2: 詳細情報を非同期で取得・更新（Task.Runを削除）
-			await UpdatePluginDetailAsync(basicPlugin, dllFile, pluginContext, progress, ct)
-				.ConfigureAwait(false);
+			// 段階2: 詳細情報を非同期で取得・更新
+			await UpdatePluginDetailAsync(
+				basicPlugin,
+				dllFile,
+				pluginContext,
+				(updatedPlugin) =>
+				{
+					// 詳細情報取得後、Dictionaryを更新
+					pluginPacks[dllFile.FullName] = updatedPlugin;
+					progress?.Report(updatedPlugin);
+				},
+				ct
+			).ConfigureAwait(false);
 		}
 	}
 
@@ -591,7 +602,7 @@ public static class PluginManager
 		PluginPack pluginPack,
 		FileInfo dllFile,
 		PluginLoadContext pluginContext,
-		IProgress<PluginPack>? progress,
+		Action<PluginPack> onUpdated, // IProgress<PluginPack>? → Action<PluginPack>
 		CancellationToken ct = default
 	)
 	{
@@ -600,12 +611,8 @@ public static class PluginManager
 			// .NETアセンブリかチェック
 			if (!await IsDotNetAssemblyByHeaderAsync(dllFile.FullName).ConfigureAwait(false))
 			{
-				// 新しいインスタンスを作成して報告
-				var updatedPlugin = pluginPack with
-				{
-					Name = "（非.NETアセンブリ）",
-				};
-				progress?.Report(updatedPlugin);
+				var updatedPlugin = pluginPack with { Name = "（非.NETアセンブリ）" };
+				onUpdated(updatedPlugin);
 				return;
 			}
 
@@ -613,7 +620,7 @@ public static class PluginManager
 			if (IsExcludedDll(dllFile.Name))
 			{
 				var updatedPlugin = pluginPack with { Name = "（除外対象）" };
-				progress?.Report(updatedPlugin);
+				onUpdated(updatedPlugin);
 				return;
 			}
 
@@ -628,7 +635,6 @@ public static class PluginManager
 
 			if (detailedPlugin is not null)
 			{
-				// 新しいインスタンスを作成して報告
 				var updatedPlugin = pluginPack with
 				{
 					Name = detailedPlugin.Name,
@@ -640,23 +646,23 @@ public static class PluginManager
 					FolderName = detailedPlugin.FolderName,
 					InstalledPath = detailedPlugin.InstalledPath,
 				};
-				progress?.Report(updatedPlugin);
+				onUpdated(updatedPlugin);
 			}
 			else
 			{
 				var updatedPlugin = pluginPack with { Name = "（読み込み失敗）" };
-				progress?.Report(updatedPlugin);
+				onUpdated(updatedPlugin);
 			}
 		}
 		catch (OperationCanceledException)
 		{
 			var updatedPlugin = pluginPack with { Name = "（キャンセル済み）" };
-			progress?.Report(updatedPlugin);
+			onUpdated(updatedPlugin);
 		}
 		catch (Exception ex)
 		{
 			var updatedPlugin = pluginPack with { Name = $"（エラー: {ex.GetType().Name}）" };
-			progress?.Report(updatedPlugin);
+			onUpdated(updatedPlugin);
 		}
 	}
 
@@ -703,6 +709,8 @@ public static class PluginManager
 					author = authorName;
 				}
 			}
+
+			Debug.WriteLine($"Loaded plugin: {name}, Version={version}, Author={author}");
 
 			author ??= assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? "?";
 
