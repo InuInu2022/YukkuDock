@@ -56,7 +56,7 @@ YukkuDockは、YMM4をもっと便利に使うためのアプリケーション�
 ## 📸 スクリーンショット
 
 <!-- TODO: スクリーンショットを追加 -->
-![mainwindow](docs\screenshots\MainWindow.png)
+![mainwindow](docs/screenshots/MainWindow.png)
 
 ## 📦 インストール
 
@@ -86,7 +86,7 @@ YukkuDockは、YMM4をもっと便利に使うためのアプリケーション�
 
 ### 起動プロファイル管理
 
-![mainwindow](docs\screenshots\MainWindow.png)
+![mainwindow](docs/screenshots/MainWindow.png)
 
 - **新規作成**: 「起動プロファイル追加」ボタンでプロファイル作成
 - **起動**: プロファイルを選択して「起動」ボタンでYMM4を起動
@@ -98,7 +98,7 @@ YukkuDockは、YMM4をもっと便利に使うためのアプリケーション�
 
 ### プラグイン管理
 
-![ProfileWindow.png](docs\screenshots\ProfileWindow.png)
+![ProfileWindow.png](docs/screenshots/ProfileWindow.png)
 
 起動プロファイル設定ウィンドウの「プラグイン」タブから、YMM4プラグインの管理ができます。
 
